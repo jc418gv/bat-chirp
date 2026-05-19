@@ -10,6 +10,8 @@ The package currently produces two public-facing outputs that matter most in pra
 
 - a nightly or hourly review page with ranked detections, spectrogram thumbnails, and direct links to clips and reports
 - a per-clip validation spectrogram that overlays the detected bout and the expanded candidate train region used for local review
+- each clip is extracted once at realtime and once is extended by a factor of 8 to bring sonar activity into audible range, letting you hear the chirps and the delayed echoes
+- json-formatted details about individual detections and summaries for runs, including information about peak detection used to extend chirp detections into longer sequences
 
 ### Review Page
 

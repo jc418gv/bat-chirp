@@ -8,6 +8,7 @@ BATPIPE_BATDETECT2_SPEC="${BATPIPE_BATDETECT2_SPEC:-batdetect2==2.0.0b1}"
 BATPIPE_TORCH_INDEX_URL="${BATPIPE_TORCH_INDEX_URL:-https://download.pytorch.org/whl/cu124}"
 BATPIPE_TORCH_SPEC="${BATPIPE_TORCH_SPEC:-torch==2.5.1}"
 BATPIPE_TORCHAUDIO_SPEC="${BATPIPE_TORCHAUDIO_SPEC:-torchaudio==2.5.1}"
+BATPIPE_FSSPEC_SPEC="${BATPIPE_FSSPEC_SPEC:-fsspec<2026.0}"
 
 if [ ! -d .venv ]; then
   python3 -m venv .venv
@@ -16,14 +17,16 @@ fi
 . .venv/bin/activate
 
 python -m pip install --upgrade pip
-python -m pip install -e . "$BATPIPE_BATDETECT2_SPEC"
 
-# If your host is CPU-only or uses a different CUDA runtime, override the wheel
-# index and package specs before running this script.
+# Install the pinned Torch stack first so BatDetect2 resolves against the
+# intended CUDA/PyTorch runtime instead of briefly pulling a newer default.
 python -m pip install --force-reinstall \
   --index-url "$BATPIPE_TORCH_INDEX_URL" \
   "$BATPIPE_TORCH_SPEC" \
   "$BATPIPE_TORCHAUDIO_SPEC"
+
+python -m pip install "$BATPIPE_FSSPEC_SPEC"
+python -m pip install -e . "$BATPIPE_BATDETECT2_SPEC"
 
 if ! command -v batdetect2 >/dev/null 2>&1; then
   echo "batdetect2 was not installed into $(pwd)/.venv/bin" >&2
