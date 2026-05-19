@@ -35,22 +35,13 @@ cd /path/to/bat-chirp
 PYTHONPATH=src python scripts/run_night_pipeline.py --config config/site.local.json
 ```
 
-After setup, confirm the detector entry point exists before running a night batch:
-
-```bash
-which batdetect2
-batdetect2 --help >/dev/null
-```
-
-Most users should do that directly over SSH on the Linux host where the recordings and GPU live, rather than driving the pipeline remotely from Windows.
-
 If you want a simple one-night trigger after SSH'ing into the host, use:
 
 ```bash
-./scripts/run_night_for_date.sh 20260518 config/site.local.json
+./scripts/run_night_for_date.sh YYYYMMDD config/site.local.json
 ```
 
-That wrapper creates a temporary night-specific config, selects recordings inside the requested overnight window, and writes outputs under a dedicated `night-runs/YYYYMMDD/` work area.
+That wrapper creates a temporary night-specific config, selects recordings inside the overnight window that begins on the specified date, and writes outputs for the entire night under a dedicated `night-runs/YYYYMMDD/` work area. See configuration details for how to set exact cutoff hours for the token days. 
 
 To validate the orchestration without running inference, use:
 
