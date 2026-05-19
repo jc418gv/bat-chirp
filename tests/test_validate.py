@@ -1,6 +1,8 @@
 from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
-from batpipe.validate import _format_sample_time_token, ClipDetection, choose_clip_window, detections_in_window, estimate_candidate_train_range, group_detection_bouts
+from batpipe.validate import CandidateTrainRange, CandidateTrainSegment, ClipDetection, DetectionBout, ClipWindow, _format_sample_time_token, choose_clip_window, detections_in_window, estimate_candidate_train_range, group_detection_bouts, render_validation_spectrogram
 import unittest
 
 import numpy as np
@@ -237,6 +239,55 @@ class ValidateTests(unittest.TestCase):
         self.assertAlmostEqual(estimated.start_time_s if estimated else -1.0, 0.075)
         self.assertAlmostEqual(estimated.end_time_s if estimated else -1.0, 0.825)
         self.assertEqual(len(estimated.peak_times_s if estimated else []), 4)
+
+    def test_render_validation_spectrogram_aligns_footer_axis_with_spectrogram_axis(self) -> None:
+        captured_positions: dict[str, tuple[float, float, float, float]] = {}
+
+        def capture_savefig(figure, *args, **kwargs):
+            axis, range_axis, *_ = figure.axes
+            captured_positions["spectrogram"] = axis.get_position().bounds
+            captured_positions["footer"] = range_axis.get_position().bounds
+
+        window = ClipWindow(start_time_s=25.218, end_time_s=35.218)
+        selected_bout = DetectionBout(
+            start_time_s=30.528,
+            end_time_s=30.909,
+            detections=[
+                ClipDetection(30.528, 30.909, 0.667, 0.5, "bat", "Echolocation", 40000.0, 50000.0)
+            ],
+        )
+        expanded_train = CandidateTrainRange(
+            start_time_s=5.207,
+            end_time_s=5.908,
+            peak_times_s=[5.31, 5.45, 5.62],
+            segments=[
+                CandidateTrainSegment(
+                    start_time_s=5.207,
+                    end_time_s=5.908,
+                    peak_times_s=[5.31, 5.45, 5.62],
+                )
+            ],
+        )
+
+        with TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / "spectrogram.png"
+            with patch("matplotlib.figure.Figure.savefig", new=capture_savefig):
+                render_validation_spectrogram(
+                    audio=np.sin(np.linspace(0.0, 50.0, 4096, dtype=np.float32)),
+                    sample_rate_hz=256000,
+                    window=window,
+                    detections=selected_bout.detections,
+                    selected_bout=selected_bout,
+                    expanded_train=expanded_train,
+                    output_path=output_path,
+                    max_freq_hz=96000.0,
+                    title="20260518_233200T.WAV",
+                )
+
+        self.assertIn("spectrogram", captured_positions)
+        self.assertIn("footer", captured_positions)
+        self.assertAlmostEqual(captured_positions["spectrogram"][0], captured_positions["footer"][0], places=4)
+        self.assertAlmostEqual(captured_positions["spectrogram"][2], captured_positions["footer"][2], places=4)
 
 
 if __name__ == "__main__":

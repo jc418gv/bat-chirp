@@ -770,7 +770,7 @@ def render_validation_spectrogram(
         shading="auto",
         cmap="magma",
     )
-    colorbar = figure.colorbar(mesh, ax=axis)
+    colorbar = figure.colorbar(mesh, ax=[axis, range_axis])
     colorbar.set_label("Magnitude (dB)")
 
     range_axis.set_xlim(0, window.duration_s)
