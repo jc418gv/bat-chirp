@@ -692,6 +692,8 @@ def analyze_candidate_train(
     else:
         waveform = waveform.astype(np.float32)
 
+    clip_duration_s = waveform.size / float(sample_rate_hz)
+
     nperseg = min(2048, waveform.size)
     noverlap = max(0, int(nperseg * 0.75))
     frequencies_hz, times_s, spectrum = signal.spectrogram(
@@ -744,6 +746,8 @@ def render_validation_spectrogram(
     else:
         waveform = waveform.astype(np.float32)
 
+    clip_duration_s = waveform.size / float(sample_rate_hz)
+
     nperseg = min(2048, waveform.size)
     noverlap = max(0, int(nperseg * 0.75))
     frequencies_hz, times_s, spectrum = signal.spectrogram(
@@ -773,7 +777,7 @@ def render_validation_spectrogram(
     colorbar = figure.colorbar(mesh, ax=[axis, range_axis])
     colorbar.set_label("Magnitude (dB)")
 
-    range_axis.set_xlim(0, window.duration_s)
+    range_axis.set_xlim(0, clip_duration_s)
     range_axis.set_ylim(0, 1)
     range_axis.set_yticks([0.75, 0.25])
     range_axis.set_yticklabels(["Detected", "Expanded"])
@@ -785,7 +789,7 @@ def render_validation_spectrogram(
 
     if selected_bout is not None and detections:
         detected_start_s = max(0.0, selected_bout.start_time_s - window.start_time_s)
-        detected_end_s = min(window.duration_s, selected_bout.end_time_s - window.start_time_s)
+        detected_end_s = min(clip_duration_s, selected_bout.end_time_s - window.start_time_s)
         range_axis.hlines(0.75, detected_start_s, detected_end_s, color="#8bd3dd", linewidth=3.0)
         range_axis.vlines([detected_start_s, detected_end_s], 0.68, 0.82, color="#8bd3dd", linewidth=2.0)
 
@@ -799,7 +803,7 @@ def render_validation_spectrogram(
         ]
         for segment in segments:
             expanded_start_s = max(0.0, segment.start_time_s)
-            expanded_end_s = min(window.duration_s, segment.end_time_s)
+            expanded_end_s = min(clip_duration_s, segment.end_time_s)
             range_axis.hlines(0.25, expanded_start_s, expanded_end_s, color="#f4d35e", linewidth=2.2, linestyles="--")
             range_axis.vlines([expanded_start_s, expanded_end_s], 0.18, 0.32, color="#f4d35e", linewidth=1.6, linestyles="--")
 
@@ -842,9 +846,12 @@ def render_validation_spectrogram(
     axis.set_xlabel(f"Time within clip (s) | clip window {window.start_time_s:.3f}s to {window.end_time_s:.3f}s")
     axis.set_ylabel("Frequency (kHz)")
     axis.set_ylim(0, max_freq_hz / 1000.0)
-    axis.set_xlim(0, window.duration_s)
+    axis.set_xlim(0, clip_duration_s)
     axis.grid(False)
     range_axis.set_xlabel(f"Time within clip (s) | clip window {window.start_time_s:.3f}s to {window.end_time_s:.3f}s")
     figure.subplots_adjust(bottom=0.16, hspace=0.08)
+    axis_position = axis.get_position()
+    range_position = range_axis.get_position()
+    range_axis.set_position([axis_position.x0, range_position.y0, axis_position.width, range_position.height])
     figure.savefig(output_path, dpi=200)
     plt.close(figure)

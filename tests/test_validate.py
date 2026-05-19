@@ -241,12 +241,14 @@ class ValidateTests(unittest.TestCase):
         self.assertEqual(len(estimated.peak_times_s if estimated else []), 4)
 
     def test_render_validation_spectrogram_aligns_footer_axis_with_spectrogram_axis(self) -> None:
-        captured_positions: dict[str, tuple[float, float, float, float]] = {}
+        captured_positions: dict[str, tuple[float, float, float, float] | tuple[float, float]] = {}
 
         def capture_savefig(figure, *args, **kwargs):
             axis, range_axis, *_ = figure.axes
             captured_positions["spectrogram"] = axis.get_position().bounds
             captured_positions["footer"] = range_axis.get_position().bounds
+            captured_positions["spectrogram_xlim"] = axis.get_xlim()
+            captured_positions["footer_xlim"] = range_axis.get_xlim()
 
         window = ClipWindow(start_time_s=25.218, end_time_s=35.218)
         selected_bout = DetectionBout(
@@ -288,6 +290,7 @@ class ValidateTests(unittest.TestCase):
         self.assertIn("footer", captured_positions)
         self.assertAlmostEqual(captured_positions["spectrogram"][0], captured_positions["footer"][0], places=4)
         self.assertAlmostEqual(captured_positions["spectrogram"][2], captured_positions["footer"][2], places=4)
+        self.assertEqual(captured_positions["spectrogram_xlim"], captured_positions["footer_xlim"])
 
 
 if __name__ == "__main__":
