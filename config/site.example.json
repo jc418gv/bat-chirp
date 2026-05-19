@@ -1,0 +1,23 @@
+{
+  "recording_input_dir": "/path/to/audiomoth/recordings",
+  "work_root_dir": "/path/to/audiomoth/work",
+  "night_runs_dir": "/path/to/audiomoth/work/night-runs",
+  "night_start_hour": 18,
+  "night_end_hour": 12,
+  "batdetect2_bin": "/path/to/venv/bin/batdetect2",
+  "detection_threshold": 0.5,
+  "model": null,
+  "subset_limit": null,
+  "name_contains": [],
+  "extra_args": [],
+  "padding_before_s": 5.0,
+  "padding_after_s": 4.0,
+  "minimum_duration_s": 10.0,
+  "bout_gap_s": 0.5,
+  "slowdown_factor": 8,
+  "max_freq_hz": 120000.0,
+  "write_mp3": true,
+  "ffmpeg_bin": "/usr/bin/ffmpeg",
+  "mp3_bitrate": "192k",
+  "continue_on_error": true
+}
