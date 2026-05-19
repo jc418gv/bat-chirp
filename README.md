@@ -18,6 +18,7 @@ The intended workflow is simple:
 1. Copy AudioMoth WAV files to a Linux machine.
 2. Run detection and review export there, ideally with an NVIDIA GPU.
 3. Open the generated nightly HTML pages and inspect likely sonar activity.
+4. After seeing and hearing sonar in recordings you have (that do not violate laws!), get involved with your local resources.
 
 ## What It Is Not
 
@@ -40,9 +41,16 @@ More detail is in [docs/upstream-projects.md](docs/upstream-projects.md).
 
 Most real runs should happen over SSH on a Linux host where the recordings and GPU live.
 
-- Start with [scripts/setup_host.sh](scripts/setup_host.sh)
-- Copy `config/site.example.json` to `config/site.local.json`
-- Run [scripts/run_night_pipeline.py](scripts/run_night_pipeline.py) or [scripts/run_night_for_date.sh](scripts/run_night_for_date.sh)
+Quickstart:
+```
+git clone git@github.com:jc418/bat-chirp.git
+cd bat-chirp
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e .
+./scripts/setup_host.sh
+````
 
 Detailed setup, commands, and output descriptions are in [docs/usage.md](docs/usage.md).
 
