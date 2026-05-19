@@ -9,7 +9,10 @@ BATPIPE_TORCH_INDEX_URL="${BATPIPE_TORCH_INDEX_URL:-https://download.pytorch.org
 BATPIPE_TORCH_SPEC="${BATPIPE_TORCH_SPEC:-torch==2.5.1}"
 BATPIPE_TORCHAUDIO_SPEC="${BATPIPE_TORCHAUDIO_SPEC:-torchaudio==2.5.1}"
 
-python3 -m venv .venv
+if [ ! -d .venv ]; then
+  python3 -m venv .venv
+fi
+
 . .venv/bin/activate
 
 python -m pip install --upgrade pip
@@ -22,6 +25,12 @@ python -m pip install --force-reinstall \
   "$BATPIPE_TORCH_SPEC" \
   "$BATPIPE_TORCHAUDIO_SPEC"
 
+if ! command -v batdetect2 >/dev/null 2>&1; then
+  echo "batdetect2 was not installed into $(pwd)/.venv/bin" >&2
+  echo "Try: python -m pip install \"$BATPIPE_BATDETECT2_SPEC\"" >&2
+  exit 1
+fi
+
 python - <<'PY'
 import torch
 
@@ -31,3 +40,5 @@ print("cuda_device_count", torch.cuda.device_count())
 if torch.cuda.is_available():
     print("cuda_device_0", torch.cuda.get_device_name(0))
 PY
+
+echo "batdetect2 $(command -v batdetect2)"

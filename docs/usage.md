@@ -8,8 +8,8 @@ Recommended setup on the processing host:
 - prefer running on a Linux host with an NVIDIA GPU available
 - keep the PyTorch stack aligned with the CUDA runtime available on that host
 
-1. Create a virtual environment and install the local package.
-2. Install BatDetect2 into the same environment.
+1. Run [../scripts/setup_host.sh](../scripts/setup_host.sh) to create or reuse `.venv`.
+2. Let that script install the local package, BatDetect2, and the PyTorch stack into the same environment.
 3. Copy the example config and replace its placeholder paths with your own host-specific folders and binaries.
 4. Run the full pipeline from raw WAVs to review exports.
 
@@ -33,6 +33,13 @@ cd /path/to/bat-chirp
 . .venv/bin/activate
 
 PYTHONPATH=src python scripts/run_night_pipeline.py --config config/site.local.json
+```
+
+After setup, confirm the detector entry point exists before running a night batch:
+
+```bash
+which batdetect2
+batdetect2 --help >/dev/null
 ```
 
 Most users should do that directly over SSH on the Linux host where the recordings and GPU live, rather than driving the pipeline remotely from Windows.

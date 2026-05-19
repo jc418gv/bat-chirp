@@ -43,14 +43,12 @@ Most real runs should happen over SSH on a Linux host where the recordings and G
 
 Quickstart:
 ```
-git clone git@github.com:jc418/bat-chirp.git
+git clone https://github.com/jc418gv/bat-chirp.git
 cd bat-chirp
-python3 -m venv .venv
-. .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -e .
 ./scripts/setup_host.sh
-````
+. .venv/bin/activate
+which batdetect2
+```
 
 Detailed setup, commands, and output descriptions are in [docs/usage.md](docs/usage.md).
 
