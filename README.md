@@ -4,6 +4,25 @@ This is an amateur bat-listening project. It uses upstream bat acoustics tools t
 
 The goal is practical screening, not authoritative classification. A strong bat-like detection is treated as a cue to review that recording window more closely. Species labels from upstream models are not treated as trusted local IDs.
 
+## What It Produces
+
+The package currently produces two public-facing outputs that matter most in practice:
+
+- a nightly or hourly review page with ranked detections, spectrogram thumbnails, and direct links to clips and reports
+- a per-clip validation spectrogram that overlays the detected bout and the expanded candidate train region used for local review
+
+### Review Page
+
+![Hourly review page](docs/screenshots/hourly_review.png)
+
+This is the static review HTML generated for one hour of a night run. Each card shows the recording name, rank, detection counts, clip timing, and direct links to the original clip, slowed audio, spectrogram, and JSON report.
+
+### Validation Spectrogram
+
+![Validation spectrogram](docs/screenshots/spectrogram_231145.png)
+
+This is one exported review spectrogram. The solid footer marker shows the model-detected bout, while the dashed footer span shows the context-expanded candidate train segment that the local review layer inferred around it.
+
 ## What This Repo Contains
 
 This repository mainly contains glue code:
