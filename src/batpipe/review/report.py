@@ -29,6 +29,22 @@ def build_review_report(
     clip_mp3_path: Path | None,
     audible_mp3_path: Path | None,
 ) -> dict[str, object]:
+    activity_peak_concentrations = [
+        item.concentration_score
+        for item in (activity_extent.peak_evidence if activity_extent else [])
+        if item.concentration_score is not None and item.included_in_activity
+    ]
+    anchor_peak_concentrations = [
+        item.concentration_score
+        for item in (activity_extent.peak_evidence if activity_extent else [])
+        if item.concentration_score is not None and item.within_anchor
+    ]
+
+    def _mean(values: list[float | None]) -> float | None:
+        if not values:
+            return None
+        return float(sum(values) / len(values))
+
     return {
         "audio_file": str(audio_path),
         "json_file": str(json_path),
@@ -59,6 +75,9 @@ def build_review_report(
         "activity_duration_s": activity_extent.duration_s if activity_extent else None,
         "activity_peak_count": len(activity_extent.peak_times_s) if activity_extent else 0,
         "activity_segment_count": activity_extent.segment_count if activity_extent else 0,
+        "activity_mean_concentration": _mean(activity_peak_concentrations),
+        "activity_min_concentration": min(activity_peak_concentrations) if activity_peak_concentrations else None,
+        "anchor_mean_concentration": _mean(anchor_peak_concentrations),
         "activity_segments": [asdict(segment) for segment in activity_extent.segments] if activity_extent else [],
         "activity_peak_evidence": [asdict(item) for item in activity_extent.peak_evidence] if activity_extent else [],
         "activity_left_boundary": asdict(activity_extent.left_boundary) if activity_extent and activity_extent.left_boundary else None,
