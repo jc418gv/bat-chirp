@@ -35,7 +35,7 @@ class ReviewSiteTests(unittest.TestCase):
                         "audible_mp3": str(audible_mp3),
                         "clip_start_s": 0.0,
                         "clip_end_s": 10.0,
-                        "expanded_train_segment_count": 1,
+                        "activity_segment_count": 1,
                         "detections_in_clip": 2,
                     }
                 ],
@@ -53,6 +53,12 @@ class ReviewSiteTests(unittest.TestCase):
             self.assertIn("hour-26051802.html", html)
             self.assertIn("spectrogram_020000.png", html)
             self.assertIn("clip_original_020000.mp3", html)
+            self.assertIn("data-spectrogram-modal-trigger", html)
+            self.assertIn("<audio controls preload=\"none\" src=\"20260518_020000T/clip_original_020000.mp3\"></audio>", html)
+            self.assertIn("open full image", html)
+            self.assertNotIn(">new tab<", html)
+            self.assertIn("href=\"20260518_020000T/clip_original_020000.mp3\" target=\"_blank\" rel=\"noreferrer\"", html)
+            self.assertIn("href=\"20260518_020000T/detections_020000.json\" target=\"_blank\" rel=\"noreferrer\"", html)
 
     def test_build_review_site_orders_overnight_hours_by_full_timestamp(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -106,7 +112,7 @@ class ReviewSiteTests(unittest.TestCase):
                         "audible_mp3": str(second_audible_mp3),
                         "clip_start_s": 0.0,
                         "clip_end_s": 10.0,
-                        "expanded_train_segment_count": 1,
+                        "activity_segment_count": 1,
                         "detections_in_clip": 1,
                     },
                     {
@@ -120,7 +126,7 @@ class ReviewSiteTests(unittest.TestCase):
                         "audible_mp3": str(first_audible_mp3),
                         "clip_start_s": 0.0,
                         "clip_end_s": 10.0,
-                        "expanded_train_segment_count": 1,
+                        "activity_segment_count": 1,
                         "detections_in_clip": 1,
                     },
                 ],

@@ -113,9 +113,9 @@ class ReviewBatchTests(unittest.TestCase):
                     "clip_end_s": 10.0,
                     "selected_bout_start_s": 5.0,
                     "selected_bout_end_s": 5.2,
-                    "expanded_train_start_s": 0.2,
-                    "expanded_train_end_s": 6.2,
-                    "expanded_train_segment_count": 1,
+                    "activity_start_s": 0.2,
+                    "activity_end_s": 6.2,
+                    "activity_segment_count": 1,
                     "detections_in_clip": 2,
                 }
 
@@ -148,3 +148,53 @@ class ReviewBatchTests(unittest.TestCase):
             self.assertIn("sample_local_time", assets_csv)
             self.assertIn("220000", assets_csv)
             mock_export.assert_called_once()
+
+    def test_export_review_batch_emits_progress_events(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            audio_dir = root / "audio"
+            json_dir = root / "json"
+            output_dir = root / "out"
+            audio_dir.mkdir()
+            json_dir.mkdir()
+
+            audio_path = audio_dir / "20260518_220000T.WAV"
+            json_path = json_dir / "20260518_220000T.WAV.json"
+            audio_path.write_bytes(b"wav")
+            json_path.write_text("{}", encoding="utf-8")
+
+            events: list[tuple[str, dict[str, object]]] = []
+
+            with patch("batpipe.review.batch.export_review_clip") as mock_export:
+                mock_export.return_value = {
+                    "sample_local_time": "220000",
+                    "clip_wav": "clip.wav",
+                    "audible_wav": "audible.wav",
+                    "clip_mp3": None,
+                    "audible_mp3": None,
+                    "spectrogram_png": "spec.png",
+                    "report_json": "report.json",
+                    "clip_start_s": 0.0,
+                    "clip_end_s": 10.0,
+                    "selected_bout_start_s": 5.0,
+                    "selected_bout_end_s": 5.2,
+                    "activity_start_s": 0.2,
+                    "activity_end_s": 6.2,
+                    "activity_segment_count": 1,
+                    "detections_in_clip": 2,
+                }
+
+                export_review_batch(
+                    audio_dir=audio_dir,
+                    json_dir=json_dir,
+                    output_dir=output_dir,
+                    write_mp3=False,
+                    requested_night_token="20260518",
+                    progress_callback=lambda event, payload: events.append((event, payload.copy())),
+                )
+
+            self.assertEqual([event for event, _ in events], ["batch_started", "item_started", "item_completed", "batch_completed"])
+            self.assertEqual(events[0][1]["matched_job_count"], 1)
+            self.assertEqual(events[1][1]["index"], 1)
+            self.assertEqual(events[2][1]["activity_segment_count"], 1)
+            self.assertEqual(events[3][1]["exported_count"], 1)

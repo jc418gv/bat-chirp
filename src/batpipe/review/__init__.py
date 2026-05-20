@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from batpipe.review.acoustic import (
-    analyze_candidate_train,
-    estimate_candidate_train_range,
-    estimate_candidate_train_range_with_config,
+    extract_activity_extent,
+    extract_activity_extent_with_config,
+    extract_bat_activity,
 )
 from batpipe.review.audio import encode_wav_as_mp3, export_review_clip
 from batpipe.review.batch import (
@@ -22,14 +22,16 @@ from batpipe.review.detection import (
     select_primary_bout,
 )
 from batpipe.review.models import (
+    ActivityBoundaryDecision,
+    ActivityExtent,
+    ActivityExtractionConfig,
+    ActivitySegment,
     CLASSIFICATION_WARNING,
-    CandidateTrainRange,
-    CandidateTrainSegment,
     ClipDetection,
     ClipSelectionConfig,
     ClipWindow,
     DetectionBout,
-    PeakDetectionConfig,
+    PeakEvidence,
     SpectrogramConfig,
     ReviewBatchJob,
 )
@@ -37,18 +39,19 @@ from batpipe.review.report import build_review_report
 from batpipe.review.spectrogram import render_review_spectrogram
 
 __all__ = [
+    "ActivityBoundaryDecision",
+    "ActivityExtent",
+    "ActivityExtractionConfig",
+    "ActivitySegment",
     "CLASSIFICATION_WARNING",
-    "CandidateTrainRange",
-    "CandidateTrainSegment",
     "ClipDetection",
     "ClipSelectionConfig",
     "ClipWindow",
     "DetectionBout",
-    "PeakDetectionConfig",
+    "PeakEvidence",
     "ReviewBatchJob",
     "SpectrogramConfig",
     "_resolve_night_output_dir",
-    "analyze_candidate_train",
     "build_review_artifact_paths",
     "build_review_report",
     "choose_clip_window",
@@ -56,8 +59,9 @@ __all__ = [
     "detections_in_window",
     "discover_review_jobs",
     "encode_wav_as_mp3",
-    "estimate_candidate_train_range",
-    "estimate_candidate_train_range_with_config",
+    "extract_activity_extent",
+    "extract_activity_extent_with_config",
+    "extract_bat_activity",
     "export_review_batch",
     "export_review_clip",
     "format_sample_time_token",

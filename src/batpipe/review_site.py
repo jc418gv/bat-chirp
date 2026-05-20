@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from html import escape
 from pathlib import Path
 import csv
-import os
 
 from batpipe.audiomoth import parse_audiomoth_timestamp
+from batpipe.review_site_render import render_cards_html, render_hour_card, render_hour_sections_html, render_html_document
 
 _ASSETS_DIR = Path(__file__).parent / "assets"
 
@@ -20,12 +19,6 @@ def _read_csv_rows(csv_path: Path | None) -> list[dict[str, str]]:
         return []
     with csv_path.open("r", newline="", encoding="utf-8") as handle:
         return list(csv.DictReader(handle))
-
-
-def _relative_link(from_dir: Path, target_path: str | Path | None) -> str:
-    if not target_path:
-        return ""
-    return os.path.relpath(str(target_path), start=str(from_dir)).replace("\\", "/")
 
 
 def _to_int(value: object, default: int = 0) -> int:
@@ -80,7 +73,7 @@ def _build_review_entries(
                 "report_json": str(item.get("report_json") or ""),
                 "clip_start_s": item.get("clip_start_s"),
                 "clip_end_s": item.get("clip_end_s"),
-                "expanded_train_segment_count": item.get("expanded_train_segment_count"),
+                "activity_segment_count": item.get("activity_segment_count"),
                 "detections_in_clip": item.get("detections_in_clip"),
             }
         )
@@ -93,95 +86,6 @@ def _build_review_entries(
         )
     )
     return entries
-
-
-# ---------------------------------------------------------------------------
-# HTML rendering
-# ---------------------------------------------------------------------------
-
-def _render_cards_html(entries: list[dict[str, object]], summary_dir: Path) -> str:
-    cards: list[str] = []
-    for entry in entries:
-        spectrogram_href = _relative_link(summary_dir, str(entry["spectrogram_png"]))
-        clip_mp3_href = _relative_link(summary_dir, str(entry["clip_mp3"]))
-        clip_wav_href = _relative_link(summary_dir, str(entry["clip_wav"]))
-        audible_mp3_href = _relative_link(summary_dir, str(entry["audible_mp3"]))
-        audible_wav_href = _relative_link(summary_dir, str(entry["audible_wav"]))
-        report_href = _relative_link(summary_dir, str(entry["report_json"]))
-        probability = entry["max_det_prob"]
-        probability_text = f"p={probability:.3f}" if isinstance(probability, float) else "p=n/a"
-        recording_start = entry["recording_start"]
-        time_label = recording_start.strftime("%H:%M:%S") if hasattr(recording_start, "strftime") else str(recording_start)
-        det_count = escape(str(entry["detection_count"]))
-        clip_det = escape(str(entry["detections_in_clip"]))
-        segments = escape(str(entry["expanded_train_segment_count"]))
-        clip_range = f"{entry['clip_start_s']}s – {entry['clip_end_s']}s"
-        cards.append(
-            f"""<article class="card">
-  <a class="image-link" href="{escape(spectrogram_href)}"><img class="spectrogram" src="{escape(spectrogram_href)}" alt="Spectrogram {escape(time_label)}" loading="lazy"></a>
-  <div class="card-body">
-    <p class="card-time">{escape(time_label)}<span class="card-rank">rank {escape(str(entry['rank']))}</span></p>
-    <p class="card-filename">{escape(str(entry['audio_name']))}</p>
-    <p class="card-stats">{det_count} detections · {escape(probability_text)} · {segments} segment{'s' if str(entry['expanded_train_segment_count']) != '1' else ''} · {escape(clip_range)}</p>
-    <div class="links">
-      <a class="pill primary" href="{escape(spectrogram_href)}">spectrogram</a>
-      <a class="pill" href="{escape(audible_mp3_href)}">x8 mp3</a>
-      <a class="pill" href="{escape(audible_wav_href)}">x8 wav</a>
-      <a class="pill" href="{escape(clip_mp3_href)}">clip mp3</a>
-      <a class="pill" href="{escape(clip_wav_href)}">clip wav</a>
-      <a class="pill" href="{escape(report_href)}">json</a>
-    </div>
-  </div>
-</article>"""
-        )
-    return "\n".join(cards)
-
-
-def _render_html_document(title: str, body: str, *, back_link: str | None = None) -> str:
-    back_link_html = f'<p class="back-link"><a href="{escape(back_link or "index.html")}">Back to nightly overview</a></p>' if back_link else ""
-    return f"""<!DOCTYPE html>
-<html lang=\"en\">
-<head>
-  <meta charset=\"utf-8\">
-  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
-  <title>{escape(title)}</title>
-  <link rel=\"stylesheet\" href=\"style.css\">
-</head>
-<body>
-  <main class=\"page\">
-    <header class=\"hero\">
-      <h1>{escape(title)}</h1>
-      {back_link_html}
-    </header>
-    {body}
-  </main>
-</body>
-</html>
-"""
-
-
-def _render_hour_sections_html(
-    entries_by_hour: dict[str, list[dict[str, object]]],
-    summary_dir: Path,
-) -> str:
-    sections: list[str] = []
-    for index, hour_key in enumerate(sorted(entries_by_hour)):
-        hour_entries = entries_by_hour[hour_key]
-        hour_label = str(hour_entries[0].get("recording_hour_label") or hour_key)
-        open_attr = " open" if index == 0 else ""
-        sections.append(
-            f"""
-            <details class="hour-group"{open_attr}>
-              <summary>
-                <span class="hour-title">Hour {escape(hour_label)}</span>
-                <span class="hour-count">{escape(str(len(hour_entries)))} detections</span>
-                <a class="hour-page-link" href="{escape(f'hour-{hour_key}.html')}" onclick="event.stopPropagation();">open hour page</a>
-              </summary>
-              <section class="cards">{_render_cards_html(hour_entries, summary_dir)}</section>
-            </details>
-            """.strip()
-        )
-    return "\n".join(sections)
 
 
 # ---------------------------------------------------------------------------
@@ -210,22 +114,14 @@ def _write_hour_pages(
         hour_page_path = summary_dir / hour_filename
         hour_page_paths.append(str(hour_page_path))
         hour_page_path.write_text(
-            _render_html_document(
+            render_html_document(
                 title=f"Review Hour {hour_label}",
-                body=f'<section class="cards">{_render_cards_html(hour_entries, summary_dir)}</section>',
+                body=f'<section class="cards">{render_cards_html(hour_entries, summary_dir)}</section>',
                 back_link="index.html",
             ),
             encoding="utf-8",
         )
-        hour_cards.append(
-            f"""
-            <section class="hour-card">
-              <h2>Hour {escape(hour_label)}</h2>
-              <p>{escape(str(len(hour_entries)))} review clips</p>
-              <a href="{escape(hour_filename)}">Open hour page</a>
-            </section>
-            """.strip()
-        )
+        hour_cards.append(render_hour_card(hour_label, hour_filename, len(hour_entries)))
     return hour_page_paths, hour_cards
 
 
@@ -237,11 +133,11 @@ def _write_index(
 ) -> Path:
     index_body = (
         f'<section class="hours">{"".join(hour_cards)}</section>'
-        f'<section class="hour-groups">{_render_hour_sections_html(entries_by_hour, summary_dir)}</section>'
+        f'<section class="hour-groups">{render_hour_sections_html(entries_by_hour, summary_dir)}</section>'
     )
     index_path = summary_dir / "index.html"
     index_path.write_text(
-        _render_html_document(title=f"Night Review {night_output_dir.name}", body=index_body),
+        render_html_document(title=f"Night Review {night_output_dir.name}", body=index_body),
         encoding="utf-8",
     )
     return index_path

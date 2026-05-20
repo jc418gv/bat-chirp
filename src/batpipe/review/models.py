@@ -68,7 +68,7 @@ class ClipWindow:
 
 
 @dataclass(slots=True)
-class CandidateTrainSegment:
+class ActivitySegment:
     start_time_s: float
     end_time_s: float
     peak_times_s: list[float]
@@ -77,13 +77,39 @@ class CandidateTrainSegment:
     def duration_s(self) -> float:
         return max(0.0, self.end_time_s - self.start_time_s)
 
+    @property
+    def peak_count(self) -> int:
+        return len(self.peak_times_s)
+
 
 @dataclass(slots=True)
-class CandidateTrainRange:
+class PeakEvidence:
+    time_s: float
+    envelope_db: float
+    relative_level_db: float
+    within_anchor: bool
+    included_in_activity: bool
+
+
+@dataclass(slots=True)
+class ActivityBoundaryDecision:
+    boundary: str
+    anchor_time_s: float
+    activity_time_s: float
+    stop_reason: str
+    included_peak_count: int
+    segment_count: int
+
+
+@dataclass(slots=True)
+class ActivityExtent:
     start_time_s: float
     end_time_s: float
     peak_times_s: list[float]
-    segments: list[CandidateTrainSegment]
+    segments: list[ActivitySegment]
+    peak_evidence: list[PeakEvidence]
+    left_boundary: ActivityBoundaryDecision | None = None
+    right_boundary: ActivityBoundaryDecision | None = None
 
     @property
     def duration_s(self) -> float:
@@ -103,13 +129,16 @@ class ClipSelectionConfig:
 
 
 @dataclass(slots=True)
-class PeakDetectionConfig:
+class ActivityExtractionConfig:
     max_peak_gap_s: float = 0.25
-    max_train_extension_s: float = 1.0
+    max_activity_extension_s: float = 1.0
     floor_percentile: float = 35.0
+    activity_threshold_ratio: float = 0.16
+    activity_modulation_ratio: float = 0.05
     threshold_ratio: float = 0.28
     prominence_ratio: float = 0.12
     min_peak_distance_s: float = 0.03
+    max_silence_gap_s: float = 0.12
     max_connection_gap_s: float = 0.5
 
 
