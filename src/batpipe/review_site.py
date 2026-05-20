@@ -8,6 +8,12 @@ import os
 
 from batpipe.audiomoth import parse_audiomoth_timestamp
 
+_ASSETS_DIR = Path(__file__).parent / "assets"
+
+
+# ---------------------------------------------------------------------------
+# CSV / data helpers
+# ---------------------------------------------------------------------------
 
 def _read_csv_rows(csv_path: Path | None) -> list[dict[str, str]]:
     if csv_path is None or not csv_path.exists():
@@ -19,8 +25,7 @@ def _read_csv_rows(csv_path: Path | None) -> list[dict[str, str]]:
 def _relative_link(from_dir: Path, target_path: str | Path | None) -> str:
     if not target_path:
         return ""
-    relative_path = os.path.relpath(str(target_path), start=str(from_dir))
-    return relative_path.replace("\\", "/")
+    return os.path.relpath(str(target_path), start=str(from_dir)).replace("\\", "/")
 
 
 def _to_int(value: object, default: int = 0) -> int:
@@ -36,6 +41,10 @@ def _to_float(value: object) -> float | None:
     except (TypeError, ValueError):
         return None
 
+
+# ---------------------------------------------------------------------------
+# Entry enrichment
+# ---------------------------------------------------------------------------
 
 def _build_review_entries(
     review_items: list[dict[str, object]],
@@ -85,6 +94,10 @@ def _build_review_entries(
     )
     return entries
 
+
+# ---------------------------------------------------------------------------
+# HTML rendering
+# ---------------------------------------------------------------------------
 
 def _render_cards_html(entries: list[dict[str, object]], summary_dir: Path) -> str:
     cards: list[str] = []
@@ -168,160 +181,23 @@ def _render_hour_sections_html(
     return "\n".join(sections)
 
 
-def build_review_site(
-    night_output_dir: Path,
-    review_items: list[dict[str, object]],
-    summary_outputs: dict[str, object] | None = None,
-) -> dict[str, object]:
-    summary_dir = night_output_dir
-    summary_dir.mkdir(parents=True, exist_ok=True)
+# ---------------------------------------------------------------------------
+# File I/O
+# ---------------------------------------------------------------------------
 
-    review_queue_path = None
-    if summary_outputs:
-        review_queue_value = summary_outputs.get("review_queue")
-        if review_queue_value:
-            review_queue_path = Path(str(review_queue_value))
-
-    entries = _build_review_entries(review_items, _read_csv_rows(review_queue_path))
-
+def _write_style(summary_dir: Path) -> Path:
     style_path = summary_dir / "style.css"
     style_path.write_text(
-        """
-body {
-  margin: 0;
-  font-family: Georgia, \"Times New Roman\", serif;
-  background: linear-gradient(180deg, #eef4ea 0%, #d7e5d1 100%);
-  color: #1d2a17;
-}
-
-.page {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 24px;
-}
-
-.hero {
-  margin-bottom: 24px;
-}
-
-.hero h1 {
-  margin: 0 0 8px;
-  font-size: 2rem;
-}
-
-.hours, .cards {
-  display: grid;
-  gap: 16px;
-}
-
-.hours {
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  margin-bottom: 28px;
-}
-
-.cards {
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-}
-
-.hour-card, .card {
-  background: rgba(255, 255, 255, 0.82);
-  border: 1px solid rgba(29, 42, 23, 0.12);
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: 0 10px 24px rgba(29, 42, 23, 0.08);
-}
-
-.hour-card {
-  padding: 18px;
-}
-
-.hour-card a, .links a, .back-link a {
-  color: #234a1f;
-  font-weight: 600;
-}
-
-.image-link {
-  display: block;
-  background: #0f140e;
-}
-
-.spectrogram {
-  display: block;
-  width: 100%;
-  height: 220px;
-  object-fit: cover;
-}
-
-.card-body {
-  padding: 14px 16px 18px;
-}
-
-.card-body h3 {
-  margin: 0 0 8px;
-  font-size: 1rem;
-  word-break: break-word;
-}
-
-.meta {
-  margin: 0 0 8px;
-  font-size: 0.92rem;
-}
-
-.links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 14px;
-  margin-top: 12px;
-}
-
-.hour-groups {
-  display: grid;
-  gap: 18px;
-}
-
-.hour-group {
-  background: rgba(255, 255, 255, 0.82);
-  border: 1px solid rgba(29, 42, 23, 0.12);
-  border-radius: 16px;
-  box-shadow: 0 10px 24px rgba(29, 42, 23, 0.08);
-  overflow: hidden;
-}
-
-.hour-group summary {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  justify-content: space-between;
-  padding: 16px 18px;
-  cursor: pointer;
-  font-weight: 600;
-  background: rgba(215, 229, 209, 0.65);
-}
-
-.hour-title {
-  font-size: 1.05rem;
-}
-
-.hour-count {
-  color: #35562d;
-  margin-left: auto;
-}
-
-.hour-page-link {
-  white-space: nowrap;
-}
-
-.hour-group .cards {
-  padding: 18px;
-}
-        """.strip(),
+        (_ASSETS_DIR / "style.css").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
+    return style_path
 
-    entries_by_hour: dict[str, list[dict[str, object]]] = defaultdict(list)
-    for entry in entries:
-        entries_by_hour[str(entry["recording_hour_key"])].append(entry)
 
+def _write_hour_pages(
+    entries_by_hour: dict[str, list[dict[str, object]]],
+    summary_dir: Path,
+) -> tuple[list[str], list[str]]:
     hour_page_paths: list[str] = []
     hour_cards: list[str] = []
     for hour_key in sorted(entries_by_hour):
@@ -340,23 +216,61 @@ body {
         )
         hour_cards.append(
             f"""
-            <section class=\"hour-card\">
+            <section class="hour-card">
               <h2>Hour {escape(hour_label)}</h2>
               <p>{escape(str(len(hour_entries)))} review clips</p>
-              <a href=\"{escape(hour_filename)}\">Open hour page</a>
+              <a href="{escape(hour_filename)}">Open hour page</a>
             </section>
             """.strip()
         )
+    return hour_page_paths, hour_cards
 
-    index_path = summary_dir / "index.html"
+
+def _write_index(
+    night_output_dir: Path,
+    summary_dir: Path,
+    hour_cards: list[str],
+    entries_by_hour: dict[str, list[dict[str, object]]],
+) -> Path:
     index_body = (
         f'<section class="hours">{"".join(hour_cards)}</section>'
-      f'<section class="hour-groups">{_render_hour_sections_html(entries_by_hour, summary_dir)}</section>'
+        f'<section class="hour-groups">{_render_hour_sections_html(entries_by_hour, summary_dir)}</section>'
     )
+    index_path = summary_dir / "index.html"
     index_path.write_text(
         _render_html_document(title=f"Night Review {night_output_dir.name}", body=index_body),
         encoding="utf-8",
     )
+    return index_path
+
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
+
+def build_review_site(
+    night_output_dir: Path,
+    review_items: list[dict[str, object]],
+    summary_outputs: dict[str, object] | None = None,
+) -> dict[str, object]:
+    summary_dir = night_output_dir
+    summary_dir.mkdir(parents=True, exist_ok=True)
+
+    review_queue_path = None
+    if summary_outputs:
+        review_queue_value = summary_outputs.get("review_queue")
+        if review_queue_value:
+            review_queue_path = Path(str(review_queue_value))
+
+    entries = _build_review_entries(review_items, _read_csv_rows(review_queue_path))
+
+    entries_by_hour: dict[str, list[dict[str, object]]] = defaultdict(list)
+    for entry in entries:
+        entries_by_hour[str(entry["recording_hour_key"])].append(entry)
+
+    style_path = _write_style(summary_dir)
+    hour_page_paths, hour_cards = _write_hour_pages(entries_by_hour, summary_dir)
+    index_path = _write_index(night_output_dir, summary_dir, hour_cards, entries_by_hour)
 
     return {
         "review_summary_dir": str(summary_dir),
@@ -365,3 +279,4 @@ body {
         "review_hour_pages": hour_page_paths,
         "review_entry_count": len(entries),
     }
+
