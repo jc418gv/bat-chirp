@@ -45,6 +45,17 @@ def build_review_report(
             return None
         return float(sum(values) / len(values))
 
+    detection_start_times_recording_s = [float(item.start_time_s) for item in detections_for_clip]
+    detection_end_times_recording_s = [float(item.end_time_s) for item in detections_for_clip]
+    detection_start_times_clip_s = [
+        float(max(0.0, item.start_time_s - window.start_time_s))
+        for item in detections_for_clip
+    ]
+    detection_end_times_clip_s = [
+        float(max(0.0, item.end_time_s - window.start_time_s))
+        for item in detections_for_clip
+    ]
+
     return {
         "audio_file": str(audio_path),
         "json_file": str(json_path),
@@ -70,6 +81,10 @@ def build_review_report(
         "selected_bout_detection_count": selected_bout.detection_count if selected_bout else 0,
         "selected_bout_low_freq_hz": selected_bout.min_low_freq_hz if selected_bout else None,
         "selected_bout_high_freq_hz": selected_bout.max_high_freq_hz if selected_bout else None,
+        "detection_start_times_recording_s": detection_start_times_recording_s,
+        "detection_end_times_recording_s": detection_end_times_recording_s,
+        "detection_start_times_clip_s": detection_start_times_clip_s,
+        "detection_end_times_clip_s": detection_end_times_clip_s,
         "activity_start_s": activity_extent.start_time_s + window.start_time_s if activity_extent else None,
         "activity_end_s": activity_extent.end_time_s + window.start_time_s if activity_extent else None,
         "activity_duration_s": activity_extent.duration_s if activity_extent else None,

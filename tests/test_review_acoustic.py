@@ -345,6 +345,45 @@ class ReviewAcousticTests(unittest.TestCase):
         self.assertAlmostEqual(report["anchor_mean_concentration"], 0.62)
         self.assertEqual(report["activity_peak_evidence"][2]["concentration_score"], 0.09)
 
+    def test_build_review_report_includes_detection_start_markers(self) -> None:
+        detections = [
+            ClipDetection(30.528, 30.909, 0.667, 0.5, "bat", "Echolocation", 40000.0, 50000.0),
+            ClipDetection(31.112, 31.221, 0.612, 0.4, "bat", "Echolocation", 41000.0, 52000.0),
+        ]
+        report = build_review_report(
+            audio_path=Path("recordings/20260518_003900T.WAV"),
+            json_path=Path("detections/20260518_003900T.WAV.json"),
+            payload={"class_name": "bat"},
+            sample_local_time="003944",
+            window=ClipWindow(start_time_s=25.0, end_time_s=35.0),
+            selected_bout=DetectionBout(
+                start_time_s=detections[0].start_time_s,
+                end_time_s=detections[-1].end_time_s,
+                detections=detections,
+            ),
+            activity_extent=None,
+            sample_rate_hz=256000,
+            audible_sample_rate_hz=32000,
+            slowdown_factor=8,
+            write_mp3=False,
+            mp3_bitrate="192k",
+            recording_duration_s=60.0,
+            padding_before_s=5.0,
+            padding_after_s=4.0,
+            bout_gap_s=0.5,
+            clip_start_s=None,
+            detections_for_clip=detections,
+            clip_mp3_path=None,
+            audible_mp3_path=None,
+        )
+
+        self.assertEqual(report["detection_start_times_recording_s"], [30.528, 31.112])
+        self.assertEqual(report["detection_end_times_recording_s"], [30.909, 31.221])
+        self.assertAlmostEqual(report["detection_start_times_clip_s"][0], 5.528)
+        self.assertAlmostEqual(report["detection_start_times_clip_s"][1], 6.112)
+        self.assertAlmostEqual(report["detection_end_times_clip_s"][0], 5.909)
+        self.assertAlmostEqual(report["detection_end_times_clip_s"][1], 6.221)
+
     def test_render_review_spectrogram_aligns_footer_axis_with_spectrogram_axis(self) -> None:
         captured_positions: dict[str, tuple[float, float, float, float] | tuple[float, float]] = {}
 

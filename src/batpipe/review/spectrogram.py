@@ -71,6 +71,13 @@ def render_review_spectrogram(
         detected_end_s = min(clip_duration_s, selected_bout.end_time_s - window.start_time_s)
         range_axis.hlines(0.75, detected_start_s, detected_end_s, color="#8bd3dd", linewidth=3.0)
         range_axis.vlines([detected_start_s, detected_end_s], 0.68, 0.82, color="#8bd3dd", linewidth=2.0)
+        detection_start_times_s = [
+            max(0.0, min(clip_duration_s, detection.start_time_s - window.start_time_s))
+            for detection in detections
+        ]
+        if detection_start_times_s:
+            range_axis.vlines(detection_start_times_s, 0.70, 0.80, color="#0f7173", linewidth=1.1, alpha=0.95)
+            range_axis.scatter(detection_start_times_s, [0.75] * len(detection_start_times_s), s=10, color="#0f7173", zorder=3)
 
     if activity_extent is not None:
         segments = activity_extent.segments or [
@@ -109,6 +116,11 @@ def render_review_spectrogram(
             f"Detected: {_wc(selected_bout.start_time_s)} – {_wc(selected_bout.end_time_s)}"
             f"  ({selected_bout.detection_count} detection{'s' if selected_bout.detection_count != 1 else ''})"
         )
+    if detections:
+        clipped_detection_starts = [_wc(detection.start_time_s) for detection in detections[:6]]
+        if len(detections) > 6:
+            clipped_detection_starts.append(f"+{len(detections) - 6} more")
+        footer_lines.append(f"Call starts: {', '.join(clipped_detection_starts)}")
     if activity_extent is not None:
         seg_texts = [
             f"{_wc(seg.start_time_s + window.start_time_s)} – {_wc(seg.end_time_s + window.start_time_s)}"
