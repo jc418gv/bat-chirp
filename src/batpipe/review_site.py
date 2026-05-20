@@ -100,41 +100,145 @@ def _build_review_entries(
 # ---------------------------------------------------------------------------
 
 def _render_cards_html(entries: list[dict[str, object]], summary_dir: Path) -> str:
-    cards: list[str] = []
-    for entry in entries:
-        spectrogram_href = _relative_link(summary_dir, str(entry["spectrogram_png"]))
-        clip_mp3_href = _relative_link(summary_dir, str(entry["clip_mp3"]))
-        clip_wav_href = _relative_link(summary_dir, str(entry["clip_wav"]))
-        audible_mp3_href = _relative_link(summary_dir, str(entry["audible_mp3"]))
-        audible_wav_href = _relative_link(summary_dir, str(entry["audible_wav"]))
-        report_href = _relative_link(summary_dir, str(entry["report_json"]))
-        probability = entry["max_det_prob"]
-        probability_text = f"p={probability:.3f}" if isinstance(probability, float) else "p=n/a"
-        recording_start = entry["recording_start"]
-        time_label = recording_start.strftime("%H:%M:%S") if hasattr(recording_start, "strftime") else str(recording_start)
-        det_count = escape(str(entry["detection_count"]))
-        clip_det = escape(str(entry["detections_in_clip"]))
-        segments = escape(str(entry["activity_segment_count"]))
-        clip_range = f"{entry['clip_start_s']}s – {entry['clip_end_s']}s"
-        cards.append(
-            f"""<article class="card">
-  <a class="image-link" href="{escape(spectrogram_href)}"><img class="spectrogram" src="{escape(spectrogram_href)}" alt="Spectrogram {escape(time_label)}" loading="lazy"></a>
-  <div class="card-body">
-    <p class="card-time">{escape(time_label)}<span class="card-rank">rank {escape(str(entry['rank']))}</span></p>
-    <p class="card-filename">{escape(str(entry['audio_name']))}</p>
+        cards: list[str] = []
+        for entry in entries:
+                spectrogram_href = _relative_link(summary_dir, str(entry["spectrogram_png"]))
+                clip_mp3_href = _relative_link(summary_dir, str(entry["clip_mp3"]))
+                clip_wav_href = _relative_link(summary_dir, str(entry["clip_wav"]))
+                audible_mp3_href = _relative_link(summary_dir, str(entry["audible_mp3"]))
+                audible_wav_href = _relative_link(summary_dir, str(entry["audible_wav"]))
+                report_href = _relative_link(summary_dir, str(entry["report_json"]))
+                probability = entry["max_det_prob"]
+                probability_text = f"p={probability:.3f}" if isinstance(probability, float) else "p=n/a"
+                recording_start = entry["recording_start"]
+                time_label = recording_start.strftime("%H:%M:%S") if hasattr(recording_start, "strftime") else str(recording_start)
+                det_count = escape(str(entry["detection_count"]))
+                segments = escape(str(entry["activity_segment_count"]))
+                clip_range = f"{entry['clip_start_s']}s – {entry['clip_end_s']}s"
+                audio_panel = f"""<details class="audio-panel">
+            <summary>Audio</summary>
+            <div class="audio-grid">
+                <section class="audio-block">
+                    <p class="audio-label">x1 clip</p>
+                    <audio controls preload="none" src="{escape(clip_mp3_href)}"></audio>
+                    <div class="mini-links">
+                        <a class="pill subtle" href="{escape(clip_mp3_href)}" download>mp3</a>
+                        <a class="pill subtle" href="{escape(clip_wav_href)}" download>wav</a>
+                    </div>
+                </section>
+                <section class="audio-block">
+                    <p class="audio-label">x8 audible</p>
+                    <audio controls preload="none" src="{escape(audible_mp3_href)}"></audio>
+                    <div class="mini-links">
+                        <a class="pill subtle" href="{escape(audible_mp3_href)}" download>mp3</a>
+                        <a class="pill subtle" href="{escape(audible_wav_href)}" download>wav</a>
+                    </div>
+                </section>
+            </div>
+        </details>"""
+                cards.append(
+                        f"""<article class="card">
+    <button class="image-link" type="button" data-spectrogram-modal-trigger data-spectrogram-src="{escape(spectrogram_href)}" data-spectrogram-alt="Spectrogram {escape(time_label)}" data-spectrogram-title="{escape(str(entry['audio_name']))}">
+        <img class="spectrogram" src="{escape(spectrogram_href)}" alt="Spectrogram {escape(time_label)}" loading="lazy">
+        <span class="image-link-label">Expand spectrogram</span>
+    </button>
+    <div class="card-body">
+        <p class="card-time">{escape(time_label)}<span class="card-rank">rank {escape(str(entry['rank']))}</span></p>
+        <p class="card-filename">{escape(str(entry['audio_name']))}</p>
         <p class="card-stats">{det_count} detections · {escape(probability_text)} · {segments} activity segment{'s' if str(entry['activity_segment_count']) != '1' else ''} · {escape(clip_range)}</p>
-    <div class="links">
-      <a class="pill primary" href="{escape(spectrogram_href)}">spectrogram</a>
-      <a class="pill" href="{escape(audible_mp3_href)}">x8 mp3</a>
-      <a class="pill" href="{escape(audible_wav_href)}">x8 wav</a>
-      <a class="pill" href="{escape(clip_mp3_href)}">clip mp3</a>
-      <a class="pill" href="{escape(clip_wav_href)}">clip wav</a>
-      <a class="pill" href="{escape(report_href)}">json</a>
+        {audio_panel}
+        <div class="links">
+            <button class="pill primary pill-button" type="button" data-spectrogram-modal-trigger data-spectrogram-src="{escape(spectrogram_href)}" data-spectrogram-alt="Spectrogram {escape(time_label)}" data-spectrogram-title="{escape(str(entry['audio_name']))}">spectrogram</button>
+            <a class="pill" href="{escape(spectrogram_href)}" target="_blank" rel="noreferrer">new tab</a>
+            <a class="pill" href="{escape(audible_mp3_href)}" download>x8 mp3</a>
+            <a class="pill" href="{escape(audible_wav_href)}" download>x8 wav</a>
+            <a class="pill" href="{escape(clip_mp3_href)}" download>x1 mp3</a>
+            <a class="pill" href="{escape(clip_wav_href)}" download>x1 wav</a>
+            <a class="pill" href="{escape(report_href)}">json</a>
+        </div>
     </div>
-  </div>
 </article>"""
-        )
-    return "\n".join(cards)
+                )
+        return "\n".join(cards)
+
+
+def _render_modal_shell() -> str:
+        return """<dialog class="spectrogram-modal" data-spectrogram-modal>
+    <div class="spectrogram-modal-shell">
+        <div class="spectrogram-modal-bar">
+            <div>
+                <p class="spectrogram-modal-kicker">Spectrogram</p>
+                <h2 class="spectrogram-modal-title" data-spectrogram-modal-title>Preview</h2>
+            </div>
+            <div class="spectrogram-modal-actions">
+                <a class="pill" data-spectrogram-modal-open href="#" target="_blank" rel="noreferrer">open full image</a>
+                <button class="pill pill-button" type="button" data-spectrogram-modal-close>close</button>
+            </div>
+    </div>
+        <div class="spectrogram-modal-frame">
+            <img class="spectrogram-modal-image" data-spectrogram-modal-image src="" alt="">
+        </div>
+    </div>
+</dialog>"""
+
+
+def _render_modal_script() -> str:
+        return """<script>
+(() => {
+    const modal = document.querySelector('[data-spectrogram-modal]');
+    if (!modal) {
+        return;
+    }
+
+    const modalImage = modal.querySelector('[data-spectrogram-modal-image]');
+    const modalTitle = modal.querySelector('[data-spectrogram-modal-title]');
+    const modalOpenLink = modal.querySelector('[data-spectrogram-modal-open]');
+    const closeButton = modal.querySelector('[data-spectrogram-modal-close]');
+    const triggers = document.querySelectorAll('[data-spectrogram-modal-trigger]');
+
+    const openModal = (trigger) => {
+        const src = trigger.getAttribute('data-spectrogram-src');
+        const alt = trigger.getAttribute('data-spectrogram-alt') || 'Spectrogram preview';
+        const title = trigger.getAttribute('data-spectrogram-title') || 'Spectrogram preview';
+        if (!src || !modalImage || !modalTitle || !modalOpenLink) {
+            window.open(src, '_blank', 'noopener');
+            return;
+        }
+
+        modalImage.src = src;
+        modalImage.alt = alt;
+        modalTitle.textContent = title;
+        modalOpenLink.href = src;
+
+        if (typeof modal.showModal === 'function') {
+            modal.showModal();
+            return;
+        }
+
+        window.open(src, '_blank', 'noopener');
+    };
+
+    triggers.forEach((trigger) => {
+        trigger.addEventListener('click', () => openModal(trigger));
+    });
+
+    closeButton?.addEventListener('click', () => {
+        modal.close();
+    });
+
+    modal.addEventListener('click', (event) => {
+        if (event.target === modal) {
+            modal.close();
+        }
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && modal.open) {
+            modal.close();
+        }
+    });
+})();
+</script>"""
 
 
 def _render_html_document(title: str, body: str, *, back_link: str | None = None) -> str:
@@ -155,6 +259,8 @@ def _render_html_document(title: str, body: str, *, back_link: str | None = None
     </header>
     {body}
   </main>
+    {_render_modal_shell()}
+    {_render_modal_script()}
 </body>
 </html>
 """
