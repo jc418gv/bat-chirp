@@ -4,7 +4,7 @@ from datetime import timedelta
 from pathlib import Path
 
 from batpipe.audiomoth import parse_audiomoth_timestamp
-from batpipe.review.acoustic import compute_spectrogram_db
+from batpipe.review.band_analysis import compute_spectrogram_db
 from batpipe.review.models import (
     ActivityExtent,
     ActivitySegment,
@@ -30,11 +30,15 @@ def render_review_spectrogram(
     import matplotlib.pyplot as plt
 
     spectrogram_config = spectrogram_config or SpectrogramConfig()
-    _, clip_duration_s, frequencies_hz, times_s, spectrum_db = compute_spectrogram_db(
+    spectrogram_analysis = compute_spectrogram_db(
         audio,
         sample_rate_hz,
         spectrogram_config,
     )
+    clip_duration_s = spectrogram_analysis.clip_duration_s
+    frequencies_hz = spectrogram_analysis.frequencies_hz
+    times_s = spectrogram_analysis.times_s
+    spectrum_db = spectrogram_analysis.spectrum_db
     frequency_mask = frequencies_hz <= max_freq_hz
 
     figure, (axis, range_axis) = plt.subplots(

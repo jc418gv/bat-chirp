@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from batpipe.review.band_analysis import compute_spectrogram_db, estimate_band_envelope_db
 from batpipe.review.activity_segments import (
     build_boundary_decision,
     build_mask_activity_segments,
@@ -16,59 +17,6 @@ from batpipe.review.models import (
     PeakEvidence,
     SpectrogramConfig,
 )
-
-
-def compute_spectrogram_db(audio, sample_rate_hz: int, config: SpectrogramConfig):
-    import numpy as np
-    from scipy import signal
-
-    waveform = np.asarray(audio)
-    if waveform.size == 0:
-        raise ValueError("Clip audio is empty.")
-
-    if np.issubdtype(waveform.dtype, np.integer):
-        info = np.iinfo(waveform.dtype)
-        scale = max(abs(info.min), info.max)
-        waveform = waveform.astype(np.float32) / float(scale)
-    else:
-        waveform = waveform.astype(np.float32)
-
-    clip_duration_s = waveform.size / float(sample_rate_hz)
-    nperseg = min(config.nperseg, waveform.size)
-    noverlap = max(0, int(nperseg * config.noverlap_ratio))
-    frequencies_hz, times_s, spectrum = signal.spectrogram(
-        waveform,
-        fs=sample_rate_hz,
-        nperseg=nperseg,
-        noverlap=noverlap,
-        mode="magnitude",
-    )
-    spectrum_db = 20.0 * np.log10(np.maximum(spectrum, 1e-12))
-    return waveform, clip_duration_s, frequencies_hz, times_s, spectrum_db
-
-
-def estimate_band_envelope_db(
-    spectrum_db,
-    frequencies_hz,
-    selected_bout: DetectionBout,
-    max_freq_hz: float,
-    config: SpectrogramConfig,
-):
-    import numpy as np
-    from scipy import ndimage
-
-    band_low_hz = max(0.0, (selected_bout.min_low_freq_hz or 0.0) - config.band_margin_hz)
-    band_high_hz = min(max_freq_hz, (selected_bout.max_high_freq_hz or max_freq_hz) + config.band_margin_hz)
-    band_mask = (frequencies_hz >= band_low_hz) & (frequencies_hz <= band_high_hz)
-    if not band_mask.any():
-        return None
-
-    band_spectrum = spectrum_db[band_mask].copy()
-    band_spectrum -= np.nanmean(band_spectrum, axis=1, keepdims=True)
-    np.maximum(band_spectrum, 0.0, out=band_spectrum)
-    band_envelope_db = np.nanpercentile(band_spectrum, config.envelope_percentile, axis=0)
-    band_envelope_db = ndimage.gaussian_filter1d(band_envelope_db, sigma=config.gaussian_sigma, mode="nearest")
-    return band_envelope_db
 
 
 def extract_activity_extent(
@@ -350,25 +298,25 @@ def extract_bat_activity(
     spectrogram_config = spectrogram_config or SpectrogramConfig()
 
     try:
-        _, _, frequencies_hz, times_s, spectrum_db = compute_spectrogram_db(audio, sample_rate_hz, spectrogram_config)
+        spectrogram_analysis = compute_spectrogram_db(audio, sample_rate_hz, spectrogram_config)
     except ValueError:
         return None
 
-    band_envelope_db = estimate_band_envelope_db(
-        spectrum_db=spectrum_db,
-        frequencies_hz=frequencies_hz,
+    band_analysis = estimate_band_envelope_db(
+        spectrum_db=spectrogram_analysis.spectrum_db,
+        frequencies_hz=spectrogram_analysis.frequencies_hz,
         selected_bout=selected_bout,
         max_freq_hz=max_freq_hz,
         config=spectrogram_config,
     )
-    if band_envelope_db is None:
+    if band_analysis is None:
         return None
 
     anchor_start_s = selected_bout.start_time_s - window.start_time_s
     anchor_end_s = selected_bout.end_time_s - window.start_time_s
     return extract_activity_extent_with_config(
-        times_s=times_s,
-        band_envelope_db=band_envelope_db,
+        times_s=spectrogram_analysis.times_s,
+        band_envelope_db=band_analysis.band_envelope_db,
         anchor_start_s=anchor_start_s,
         anchor_end_s=anchor_end_s,
         config=activity_extraction_config,
