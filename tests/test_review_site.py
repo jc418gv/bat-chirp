@@ -56,6 +56,9 @@ class ReviewSiteTests(unittest.TestCase):
             self.assertIn("data-spectrogram-modal-trigger", html)
             self.assertIn("<audio controls preload=\"none\" src=\"20260518_020000T/clip_original_020000.mp3\"></audio>", html)
             self.assertIn("open full image", html)
+            self.assertNotIn(">new tab<", html)
+            self.assertIn("href=\"20260518_020000T/clip_original_020000.mp3\" target=\"_blank\" rel=\"noreferrer\"", html)
+            self.assertIn("href=\"20260518_020000T/detections_020000.json\" target=\"_blank\" rel=\"noreferrer\"", html)
 
     def test_build_review_site_orders_overnight_hours_by_full_timestamp(self) -> None:
         with TemporaryDirectory() as temp_dir:

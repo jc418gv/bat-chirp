@@ -19,16 +19,16 @@ def _render_audio_panel(*, clip_mp3_href: str, clip_wav_href: str, audible_mp3_h
           <p class="audio-label">x1 clip</p>
           <audio controls preload="none" src="{escape(clip_mp3_href)}"></audio>
           <div class="mini-links">
-            <a class="pill subtle" href="{escape(clip_mp3_href)}" download>mp3</a>
-            <a class="pill subtle" href="{escape(clip_wav_href)}" download>wav</a>
+            <a class="pill subtle" href="{escape(clip_mp3_href)}" target="_blank" rel="noreferrer">mp3</a>
+            <a class="pill subtle" href="{escape(clip_wav_href)}" target="_blank" rel="noreferrer">wav</a>
           </div>
         </section>
         <section class="audio-block">
           <p class="audio-label">x8 audible</p>
           <audio controls preload="none" src="{escape(audible_mp3_href)}"></audio>
           <div class="mini-links">
-            <a class="pill subtle" href="{escape(audible_mp3_href)}" download>mp3</a>
-            <a class="pill subtle" href="{escape(audible_wav_href)}" download>wav</a>
+            <a class="pill subtle" href="{escape(audible_mp3_href)}" target="_blank" rel="noreferrer">mp3</a>
+            <a class="pill subtle" href="{escape(audible_wav_href)}" target="_blank" rel="noreferrer">wav</a>
           </div>
         </section>
       </div>
@@ -48,12 +48,11 @@ def _render_card_actions(
 ) -> str:
     return f"""<div class="links">
       <button class="pill primary pill-button" type="button" data-spectrogram-modal-trigger data-spectrogram-src="{escape(spectrogram_href)}" data-spectrogram-alt="Spectrogram {escape(time_label)}" data-spectrogram-title="{escape(audio_name)}">spectrogram</button>
-      <a class="pill" href="{escape(spectrogram_href)}" target="_blank" rel="noreferrer">new tab</a>
-      <a class="pill" href="{escape(audible_mp3_href)}" download>x8 mp3</a>
-      <a class="pill" href="{escape(audible_wav_href)}" download>x8 wav</a>
-      <a class="pill" href="{escape(clip_mp3_href)}" download>x1 mp3</a>
-      <a class="pill" href="{escape(clip_wav_href)}" download>x1 wav</a>
-      <a class="pill" href="{escape(report_href)}">json</a>
+      <a class="pill" href="{escape(audible_mp3_href)}" target="_blank" rel="noreferrer">x8 mp3</a>
+      <a class="pill" href="{escape(audible_wav_href)}" target="_blank" rel="noreferrer">x8 wav</a>
+      <a class="pill" href="{escape(clip_mp3_href)}" target="_blank" rel="noreferrer">x1 mp3</a>
+      <a class="pill" href="{escape(clip_wav_href)}" target="_blank" rel="noreferrer">x1 wav</a>
+      <a class="pill" href="{escape(report_href)}" target="_blank" rel="noreferrer">json</a>
     </div>"""
 
 
