@@ -51,9 +51,6 @@ def render_review_spectrogram(
         shading="auto",
         cmap="magma",
     )
-    colorbar = figure.colorbar(mesh, ax=[axis, range_axis], fraction=0.04, pad=0.01)
-    colorbar.set_label("dB", labelpad=2)
-    colorbar.ax.tick_params(labelsize=8)
 
     range_axis.set_xlim(0, clip_duration_s)
     range_axis.set_ylim(0, 1)

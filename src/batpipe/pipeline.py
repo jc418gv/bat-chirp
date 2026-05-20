@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import asdict
 from pathlib import Path
 
@@ -8,6 +9,9 @@ from batpipe.detect import build_detection_plan, command_as_shell_string, run_de
 from batpipe.review import export_review_batch
 from batpipe.review_site import build_review_site
 from batpipe.site_config import SiteConfig, resolve_site_path
+
+
+ProgressCallback = Callable[[str, dict[str, object]], None]
 
 
 def _ensure_input_directory(path: Path, field_name: str) -> None:
@@ -43,6 +47,7 @@ def run_night_pipeline(
     skip_detection: bool = False,
     skip_summary: bool = False,
     skip_review: bool = False,
+    progress_callback: ProgressCallback | None = None,
 ) -> dict[str, object]:
     input_dir = resolve_site_path(config.recording_input_dir)
     detection_output_dir = resolve_site_path(config.detection_output_dir)
@@ -85,6 +90,15 @@ def run_night_pipeline(
     }
 
     if not skip_detection:
+        if progress_callback is not None:
+            progress_callback(
+                "detection_started",
+                {
+                    "selected_audio_files": plan.selected_file_count,
+                    "discovered_audio_files": plan.audio_file_count,
+                    "detection_command": result["detection_command"],
+                },
+            )
         run_detection_plan(plan, dry_run=dry_run)
 
     if dry_run:
@@ -92,12 +106,28 @@ def run_night_pipeline(
 
     if not skip_summary and summary_output_dir is not None:
         _ensure_output_directory(summary_output_dir, "summary_output_dir")
+        if progress_callback is not None:
+            progress_callback(
+                "summary_started",
+                {
+                    "detection_output_dir": str(detection_output_dir),
+                    "summary_output_dir": str(summary_output_dir),
+                },
+            )
         result["summary_outputs"] = _stringify_path_mapping(
             summarize_detection_directory(detection_output_dir, summary_output_dir)
         )
 
     if not skip_review and review_output_dir is not None:
         _ensure_output_directory(review_output_dir, "review_output_dir")
+        if progress_callback is not None:
+            progress_callback(
+                "review_started",
+                {
+                    "review_output_dir": str(review_output_dir),
+                    "requested_night_token": config.night_token,
+                },
+            )
         review_outputs = export_review_batch(
             audio_dir=input_dir,
             json_dir=detection_output_dir,
@@ -119,7 +149,16 @@ def run_night_pipeline(
             requested_night_token=config.night_token,
             night_start_hour=config.night_start_hour,
             night_end_hour=config.night_end_hour,
+            progress_callback=progress_callback,
         )
+        if progress_callback is not None:
+            progress_callback(
+                "review_site_started",
+                {
+                    "night_output_dir": str(review_outputs["night_output_dir"]),
+                    "review_item_count": len(review_outputs.get("items", [])),
+                },
+            )
         review_outputs.update(
             build_review_site(
                 night_output_dir=Path(str(review_outputs["night_output_dir"])),
@@ -128,5 +167,15 @@ def run_night_pipeline(
             )
         )
         result["review_outputs"] = review_outputs
+
+    if progress_callback is not None:
+        progress_callback(
+            "pipeline_completed",
+            {
+                "night_token": config.night_token,
+                "selected_audio_files": plan.selected_file_count,
+                "review_output_dir": str(review_output_dir) if review_output_dir is not None else None,
+            },
+        )
 
     return result

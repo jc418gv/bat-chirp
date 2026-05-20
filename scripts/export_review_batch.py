@@ -20,25 +20,29 @@ def _print_progress(event: str, payload: dict[str, object]) -> None:
             "Starting review batch: "
             f"{payload.get('matched_job_count', 0)} matched file(s), "
             f"{payload.get('missing_json_count', 0)} missing JSON, "
-            f"output {payload.get('night_output_dir')}"
+            f"output {payload.get('night_output_dir')}",
+            file=sys.stderr,
         )
         return
     if event == "item_started":
         print(
             f"[{payload.get('index')}/{payload.get('total')}] Exporting "
-            f"{Path(str(payload.get('audio_file'))).name}"
+            f"{Path(str(payload.get('audio_file'))).name}",
+            file=sys.stderr,
         )
         return
     if event == "item_completed":
         print(
             f"[{payload.get('index')}/{payload.get('total')}] Finished "
-            f"{Path(str(payload.get('audio_file'))).name} -> {payload.get('output_dir')}"
+            f"{Path(str(payload.get('audio_file'))).name} -> {payload.get('output_dir')}",
+            file=sys.stderr,
         )
         return
     if event == "item_failed":
         print(
             f"[{payload.get('index')}/{payload.get('total')}] Failed "
-            f"{Path(str(payload.get('audio_file'))).name}: {payload.get('error')}"
+            f"{Path(str(payload.get('audio_file'))).name}: {payload.get('error')}",
+            file=sys.stderr,
         )
         return
     if event == "batch_completed":
@@ -46,8 +50,24 @@ def _print_progress(event: str, payload: dict[str, object]) -> None:
             "Batch complete: "
             f"{payload.get('exported_count', 0)} exported, "
             f"{payload.get('failed_count', 0)} failed, "
-            f"summary {payload.get('summary_json')}"
+            f"summary {payload.get('summary_json')}",
+            file=sys.stderr,
         )
+
+
+def _render_human_summary(result: dict[str, object]) -> str:
+    return "\n".join(
+        [
+            f"Review batch complete for {result.get('night')}",
+            f"Audio files discovered: {result.get('discovered_audio_files', 0)}",
+            f"Matched review clips: {result.get('matched_job_count', 0)}",
+            f"Exported: {result.get('exported_count', 0)}",
+            f"Missing JSON: {result.get('missing_json_count', 0)}",
+            f"Failed: {result.get('failed_count', 0)}",
+            f"Batch summary: {result.get('summary_json')}",
+            f"Review index: {result.get('review_index_html')}",
+        ]
+    )
 
 
 def build_parser() -> ArgumentParser:
@@ -69,6 +89,7 @@ def build_parser() -> ArgumentParser:
     parser.add_argument("--mp3-bitrate", default="192k", help="MP3 bitrate passed to ffmpeg.")
     parser.add_argument("--no-mp3", action="store_true", help="Skip MP3 generation and export only WAV plus spectrogram assets.")
     parser.add_argument("--fail-fast", action="store_true", help="Stop on the first export failure instead of continuing.")
+    parser.add_argument("--json", dest="json_output", action="store_true", help="Print the final result as JSON instead of a human-readable summary.")
     return parser
 
 
@@ -94,7 +115,10 @@ def main() -> int:
         continue_on_error=not args.fail_fast,
         progress_callback=_print_progress,
     )
-    print(json.dumps(result, indent=2))
+    if args.json_output:
+        print(json.dumps(result, indent=2))
+    else:
+        print(_render_human_summary(result))
     return 0
 
 
