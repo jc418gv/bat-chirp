@@ -65,7 +65,11 @@ def estimate_band_envelope_db(
     return band_envelope_db
 
 
-def _build_activity_segments(
+def _segment_gap_s(left: ActivitySegment, right: ActivitySegment) -> float:
+    return max(0.0, float(right.start_time_s - left.end_time_s))
+
+
+def _build_peak_segments(
     peak_times_s,
     half_bin_s: float,
     max_peak_gap_s: float,
@@ -103,8 +107,53 @@ def _build_activity_segments(
     return segments
 
 
-def _segment_peak_gap_s(left: ActivitySegment, right: ActivitySegment) -> float:
-    return float(right.peak_times_s[0] - left.peak_times_s[-1])
+def _build_mask_activity_segments(
+    times_s,
+    active_mask,
+    peak_times_s,
+    *,
+    max_silence_gap_s: float,
+) -> list[ActivitySegment]:
+    import numpy as np
+
+    times = np.asarray(times_s, dtype=float)
+    active_indices = np.flatnonzero(np.asarray(active_mask, dtype=bool))
+    if active_indices.size == 0:
+        return []
+
+    half_bin_s = float(np.median(np.diff(times))) / 2.0 if times.size > 1 else 0.01
+    peak_times = np.asarray(peak_times_s, dtype=float)
+    segments: list[ActivitySegment] = []
+    segment_start_index = int(active_indices[0])
+    previous_index = int(active_indices[0])
+
+    def append_segment(start_index: int, end_index: int) -> None:
+        segment_start_s = max(0.0, float(times[start_index] - half_bin_s))
+        segment_end_s = float(times[end_index] + half_bin_s)
+        segment_peak_times = [
+            float(peak_time_s)
+            for peak_time_s in peak_times
+            if segment_start_s <= float(peak_time_s) <= segment_end_s
+        ]
+        segments.append(
+            ActivitySegment(
+                start_time_s=segment_start_s,
+                end_time_s=segment_end_s,
+                peak_times_s=segment_peak_times,
+            )
+        )
+
+    for current_index in active_indices[1:]:
+        current_index = int(current_index)
+        if float(times[current_index] - times[previous_index]) <= max_silence_gap_s:
+            previous_index = current_index
+            continue
+        append_segment(segment_start_index, previous_index)
+        segment_start_index = current_index
+        previous_index = current_index
+
+    append_segment(segment_start_index, previous_index)
+    return segments
 
 
 def _select_anchor_connected_segments(
@@ -140,12 +189,12 @@ def _select_anchor_connected_segments(
     right_index = max(seed_indices)
 
     while left_index > 0:
-        if _segment_peak_gap_s(segments[left_index - 1], segments[left_index]) > connection_gap_s:
+        if _segment_gap_s(segments[left_index - 1], segments[left_index]) > connection_gap_s:
             break
         left_index -= 1
 
     while right_index < len(segments) - 1:
-        if _segment_peak_gap_s(segments[right_index], segments[right_index + 1]) > connection_gap_s:
+        if _segment_gap_s(segments[right_index], segments[right_index + 1]) > connection_gap_s:
             break
         right_index += 1
 
@@ -304,7 +353,10 @@ def extract_activity_extent_with_config(
     min_peak_distance = max(1, int(round(config.min_peak_distance_s / max(time_step_s, 1e-6))))
 
     anchor_mask = (times >= anchor_start_s) & (times <= anchor_end_s)
-    if anchor_mask.any():
+    anchor_context_mask = (times >= (anchor_start_s - time_step_s)) & (times <= (anchor_end_s + time_step_s))
+    if anchor_context_mask.any():
+        anchor_level = float(np.nanmax(envelope[anchor_context_mask]))
+    elif anchor_mask.any():
         anchor_level = float(np.nanmax(envelope[anchor_mask]))
     else:
         closest_index = int(np.argmin(np.abs(times - ((anchor_start_s + anchor_end_s) / 2.0))))
@@ -314,6 +366,7 @@ def extract_activity_extent_with_config(
         return None
 
     threshold = floor + (anchor_level - floor) * config.threshold_ratio
+    activity_threshold = floor + (anchor_level - floor) * config.activity_threshold_ratio
     prominence = max((anchor_level - floor) * config.prominence_ratio, 1e-6)
     peak_indices, _ = signal.find_peaks(
         envelope,
@@ -323,7 +376,13 @@ def extract_activity_extent_with_config(
     )
     if peak_indices.size == 0:
         peak_indices, _ = signal.find_peaks(envelope, height=threshold, distance=min_peak_distance)
-    if peak_indices.size == 0:
+    peak_times = times[peak_indices]
+    peak_levels = envelope[peak_indices] if peak_indices.size > 0 else np.asarray([], dtype=float)
+
+    active_mask = envelope >= activity_threshold
+    active_mask |= anchor_mask
+
+    if peak_indices.size == 0 and not active_mask.any():
         return ActivityExtent(
             start_time_s=anchor_start_s,
             end_time_s=anchor_end_s,
@@ -348,15 +407,21 @@ def extract_activity_extent_with_config(
             ),
         )
 
-    peak_times = times[peak_indices]
-    peak_levels = envelope[peak_indices]
     inter_peak_intervals_s = np.diff(peak_times)
     if inter_peak_intervals_s.size > 0:
         connection_gap_s = min(float(np.mean(inter_peak_intervals_s)) * 2.5, config.max_connection_gap_s)
     else:
-        connection_gap_s = min(config.max_peak_gap_s * 2.0, config.max_connection_gap_s)
-    half_bin_s = time_step_s / 2.0
-    segments = _build_activity_segments(peak_times, half_bin_s, config.max_peak_gap_s)
+        connection_gap_s = min(config.max_silence_gap_s * 2.0, config.max_connection_gap_s)
+
+    segments = _build_mask_activity_segments(
+        times,
+        active_mask,
+        peak_times,
+        max_silence_gap_s=config.max_silence_gap_s + time_step_s,
+    )
+    if not segments and peak_indices.size > 0:
+        half_bin_s = time_step_s / 2.0
+        segments = _build_peak_segments(peak_times, half_bin_s, config.max_peak_gap_s)
     segments = _select_anchor_connected_segments(
         segments,
         anchor_start_s=anchor_start_s,
@@ -408,11 +473,12 @@ def extract_activity_extent_with_config(
         anchor_level_db=anchor_level,
     )
     included_peak_count = sum(1 for item in peak_evidence if item.included_in_activity)
-    included_peak_times = [item.time_s for item in peak_evidence if item.included_in_activity]
-    left_extended = bool(included_peak_times) and min(included_peak_times) < anchor_start_s
-    right_extended = bool(included_peak_times) and max(included_peak_times) > anchor_end_s
-    left_stop_reason = "disconnected_activity" if left_extended else "anchor_edge"
-    right_stop_reason = "disconnected_activity" if right_extended else "anchor_edge"
+    active_start_center_s = start_time_s + (time_step_s / 2.0)
+    active_end_center_s = end_time_s - (time_step_s / 2.0)
+    left_extended = active_start_center_s < anchor_start_s
+    right_extended = active_end_center_s > anchor_end_s
+    left_stop_reason = "activity_dropoff" if left_extended else "anchor_edge"
+    right_stop_reason = "activity_dropoff" if right_extended else "anchor_edge"
     return ActivityExtent(
         start_time_s=start_time_s,
         end_time_s=end_time_s,
