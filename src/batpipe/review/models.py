@@ -134,6 +134,7 @@ class ActivityExtractionConfig:
     max_activity_extension_s: float = 1.0
     floor_percentile: float = 35.0
     activity_threshold_ratio: float = 0.16
+    activity_modulation_ratio: float = 0.05
     threshold_ratio: float = 0.28
     prominence_ratio: float = 0.12
     min_peak_distance_s: float = 0.03

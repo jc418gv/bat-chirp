@@ -167,9 +167,11 @@ def extract_activity_extent_with_config(
     if not np.isfinite(anchor_level):
         return None
 
+    signal_span_db = max(anchor_level - floor, 1e-6)
     threshold = floor + (anchor_level - floor) * config.threshold_ratio
-    activity_threshold = floor + (anchor_level - floor) * config.activity_threshold_ratio
-    prominence = max((anchor_level - floor) * config.prominence_ratio, 1e-6)
+    activity_threshold = floor + signal_span_db * config.activity_threshold_ratio
+    prominence = max(signal_span_db * config.prominence_ratio, 1e-6)
+    modulation_threshold = signal_span_db * config.activity_modulation_ratio
     peak_indices, _ = signal.find_peaks(
         envelope,
         height=threshold,
@@ -181,7 +183,30 @@ def extract_activity_extent_with_config(
     peak_times = times[peak_indices]
     peak_levels = envelope[peak_indices] if peak_indices.size > 0 else np.asarray([], dtype=float)
 
-    active_mask = envelope >= activity_threshold
+    local_max = np.maximum.reduce([
+        envelope,
+        np.roll(envelope, 1),
+        np.roll(envelope, -1),
+    ])
+    local_min = np.minimum.reduce([
+        envelope,
+        np.roll(envelope, 1),
+        np.roll(envelope, -1),
+    ])
+    local_contrast = local_max - local_min
+    if envelope.size > 1:
+        local_contrast[0] = abs(float(envelope[1] - envelope[0]))
+        local_contrast[-1] = abs(float(envelope[-1] - envelope[-2]))
+
+    peak_support_mask = np.zeros_like(envelope, dtype=bool)
+    if peak_indices.size > 0:
+        peak_support_radius = max(1, int(round(config.max_peak_gap_s / max(time_step_s * 2.0, 1e-6))))
+        for peak_index in peak_indices:
+            left_index = max(0, int(peak_index) - peak_support_radius)
+            right_index = min(envelope.size, int(peak_index) + peak_support_radius + 1)
+            peak_support_mask[left_index:right_index] = True
+
+    active_mask = (envelope >= activity_threshold) & ((local_contrast >= modulation_threshold) | peak_support_mask)
     active_mask |= anchor_mask
 
     if peak_indices.size == 0 and not active_mask.any():
