@@ -35,7 +35,7 @@ class ReviewSiteTests(unittest.TestCase):
                         "audible_mp3": str(audible_mp3),
                         "clip_start_s": 0.0,
                         "clip_end_s": 10.0,
-                        "expanded_train_segment_count": 1,
+                        "activity_segment_count": 1,
                         "detections_in_clip": 2,
                     }
                 ],
@@ -106,7 +106,7 @@ class ReviewSiteTests(unittest.TestCase):
                         "audible_mp3": str(second_audible_mp3),
                         "clip_start_s": 0.0,
                         "clip_end_s": 10.0,
-                        "expanded_train_segment_count": 1,
+                        "activity_segment_count": 1,
                         "detections_in_clip": 1,
                     },
                     {
@@ -120,7 +120,7 @@ class ReviewSiteTests(unittest.TestCase):
                         "audible_mp3": str(first_audible_mp3),
                         "clip_start_s": 0.0,
                         "clip_end_s": 10.0,
-                        "expanded_train_segment_count": 1,
+                        "activity_segment_count": 1,
                         "detections_in_clip": 1,
                     },
                 ],

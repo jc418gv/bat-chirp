@@ -3,10 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 import json
 
-from batpipe.review.acoustic import analyze_candidate_train
+from batpipe.review.acoustic import extract_bat_activity
 from batpipe.review.clip import build_review_artifact_paths
 from batpipe.review.detection import choose_clip_window, detections_in_window, load_clip_detections
-from batpipe.review.models import ClipSelectionConfig, PeakDetectionConfig, SpectrogramConfig
+from batpipe.review.models import ActivityExtractionConfig, ClipSelectionConfig, SpectrogramConfig
 from batpipe.review.report import build_review_report
 from batpipe.review.spectrogram import render_review_spectrogram
 
@@ -74,7 +74,7 @@ def export_review_clip(
     ffmpeg_bin: str = "ffmpeg",
     mp3_bitrate: str = "192k",
     clip_selection_config: ClipSelectionConfig | None = None,
-    peak_detection_config: PeakDetectionConfig | None = None,
+    activity_extraction_config: ActivityExtractionConfig | None = None,
     spectrogram_config: SpectrogramConfig | None = None,
 ) -> dict[str, object]:
     from scipy.io import wavfile
@@ -136,13 +136,13 @@ def export_review_clip(
             sample_rate_hz=min(int(audible_sample_rate_hz), 48_000),
         )
 
-    expanded_train = analyze_candidate_train(
+    activity_extent = extract_bat_activity(
         audio=clip_audio,
         sample_rate_hz=sample_rate_hz,
         window=window,
         selected_bout=selected_bout,
         max_freq_hz=max_freq_hz,
-        peak_detection_config=peak_detection_config,
+        activity_extraction_config=activity_extraction_config,
         spectrogram_config=spectrogram_config,
     )
 
@@ -153,7 +153,7 @@ def export_review_clip(
         window=window,
         detections=detections_for_clip,
         selected_bout=selected_bout,
-        expanded_train=expanded_train,
+        activity_extent=activity_extent,
         output_path=spectrogram_path,
         max_freq_hz=max_freq_hz,
         title=audio_path.name,
@@ -168,7 +168,7 @@ def export_review_clip(
         sample_local_time=sample_local_time,
         window=window,
         selected_bout=selected_bout,
-        expanded_train=expanded_train,
+        activity_extent=activity_extent,
         sample_rate_hz=sample_rate_hz,
         audible_sample_rate_hz=audible_sample_rate_hz,
         slowdown_factor=slowdown_factor,
@@ -197,8 +197,8 @@ def export_review_clip(
         "clip_end_s": window.end_time_s,
         "selected_bout_start_s": selected_bout.start_time_s if selected_bout else None,
         "selected_bout_end_s": selected_bout.end_time_s if selected_bout else None,
-        "expanded_train_start_s": expanded_train.start_time_s + window.start_time_s if expanded_train else None,
-        "expanded_train_end_s": expanded_train.end_time_s + window.start_time_s if expanded_train else None,
-        "expanded_train_segment_count": expanded_train.segment_count if expanded_train else 0,
+        "activity_start_s": activity_extent.start_time_s + window.start_time_s if activity_extent else None,
+        "activity_end_s": activity_extent.end_time_s + window.start_time_s if activity_extent else None,
+        "activity_segment_count": activity_extent.segment_count if activity_extent else 0,
         "detections_in_clip": len(detections_for_clip),
     }

@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import csv
+from collections.abc import Callable
 from pathlib import Path
 import json
 
 from batpipe.audiomoth import is_in_night_window, parse_audiomoth_timestamp
 from batpipe.review.audio import export_review_clip
 from batpipe.review.models import ReviewBatchJob
+
+
+ProgressCallback = Callable[[str, dict[str, object]], None]
 
 
 def write_review_assets_csv(items: list[dict[str, object]], output_path: Path) -> Path:
@@ -25,9 +29,9 @@ def write_review_assets_csv(items: list[dict[str, object]], output_path: Path) -
         "clip_end_s",
         "selected_bout_start_s",
         "selected_bout_end_s",
-        "expanded_train_start_s",
-        "expanded_train_end_s",
-        "expanded_train_segment_count",
+        "activity_start_s",
+        "activity_end_s",
+        "activity_segment_count",
         "detections_in_clip",
     ]
     with output_path.open("w", newline="", encoding="utf-8") as handle:
@@ -137,6 +141,7 @@ def export_review_batch(
     requested_night_token: str | None = None,
     night_start_hour: int = 18,
     night_end_hour: int = 12,
+    progress_callback: ProgressCallback | None = None,
 ) -> dict[str, object]:
     output_dir.mkdir(parents=True, exist_ok=True)
     jobs, missing_json_paths, discovered_count, night_output_dir = discover_review_jobs(
@@ -151,9 +156,31 @@ def export_review_batch(
     )
     night_output_dir.mkdir(parents=True, exist_ok=True)
 
+    if progress_callback is not None:
+        progress_callback(
+            "batch_started",
+            {
+                "night_output_dir": str(night_output_dir),
+                "discovered_audio_files": discovered_count,
+                "matched_job_count": len(jobs),
+                "missing_json_count": len(missing_json_paths),
+            },
+        )
+
     exported_items: list[dict[str, object]] = []
     failed_items: list[dict[str, object]] = []
-    for job in jobs:
+    for index, job in enumerate(jobs, start=1):
+        if progress_callback is not None:
+            progress_callback(
+                "item_started",
+                {
+                    "index": index,
+                    "total": len(jobs),
+                    "audio_file": str(job.audio_path),
+                    "json_file": str(job.json_path),
+                    "output_dir": str(job.output_dir),
+                },
+            )
         try:
             result = export_review_clip(
                 audio_path=job.audio_path,
@@ -179,18 +206,35 @@ def export_review_batch(
                 "error": str(exc),
             }
             failed_items.append(failure)
+            if progress_callback is not None:
+                progress_callback(
+                    "item_failed",
+                    {
+                        "index": index,
+                        "total": len(jobs),
+                        **failure,
+                    },
+                )
             if not continue_on_error:
                 raise
             continue
 
-        exported_items.append(
-            {
-                "audio_file": str(job.audio_path),
-                "json_file": str(job.json_path),
-                "output_dir": str(job.output_dir),
-                **result,
-            }
-        )
+        exported_item = {
+            "audio_file": str(job.audio_path),
+            "json_file": str(job.json_path),
+            "output_dir": str(job.output_dir),
+            **result,
+        }
+        exported_items.append(exported_item)
+        if progress_callback is not None:
+            progress_callback(
+                "item_completed",
+                {
+                    "index": index,
+                    "total": len(jobs),
+                    **exported_item,
+                },
+            )
 
     summary = {
         "audio_dir": str(audio_dir),
@@ -217,4 +261,15 @@ def export_review_batch(
     summary["summary_json"] = str(summary_path)
     summary["review_assets_csv"] = str(assets_csv_path)
     summary_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    if progress_callback is not None:
+        progress_callback(
+            "batch_completed",
+            {
+                "night_output_dir": str(night_output_dir),
+                "exported_count": len(exported_items),
+                "failed_count": len(failed_items),
+                "summary_json": str(summary_path),
+                "review_assets_csv": str(assets_csv_path),
+            },
+        )
     return summary

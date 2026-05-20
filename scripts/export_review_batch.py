@@ -14,6 +14,42 @@ if str(SRC) not in sys.path:
 from batpipe.review import export_review_batch
 
 
+def _print_progress(event: str, payload: dict[str, object]) -> None:
+    if event == "batch_started":
+        print(
+            "Starting review batch: "
+            f"{payload.get('matched_job_count', 0)} matched file(s), "
+            f"{payload.get('missing_json_count', 0)} missing JSON, "
+            f"output {payload.get('night_output_dir')}"
+        )
+        return
+    if event == "item_started":
+        print(
+            f"[{payload.get('index')}/{payload.get('total')}] Exporting "
+            f"{Path(str(payload.get('audio_file'))).name}"
+        )
+        return
+    if event == "item_completed":
+        print(
+            f"[{payload.get('index')}/{payload.get('total')}] Finished "
+            f"{Path(str(payload.get('audio_file'))).name} -> {payload.get('output_dir')}"
+        )
+        return
+    if event == "item_failed":
+        print(
+            f"[{payload.get('index')}/{payload.get('total')}] Failed "
+            f"{Path(str(payload.get('audio_file'))).name}: {payload.get('error')}"
+        )
+        return
+    if event == "batch_completed":
+        print(
+            "Batch complete: "
+            f"{payload.get('exported_count', 0)} exported, "
+            f"{payload.get('failed_count', 0)} failed, "
+            f"summary {payload.get('summary_json')}"
+        )
+
+
 def build_parser() -> ArgumentParser:
     parser = ArgumentParser(description="Export review clips, MP3s, and spectrograms for a batch of AudioMoth recordings.")
     parser.add_argument("--audio-dir", required=True, help="Directory containing AudioMoth WAV files.")
@@ -56,6 +92,7 @@ def main() -> int:
         ffmpeg_bin=args.ffmpeg_bin,
         mp3_bitrate=args.mp3_bitrate,
         continue_on_error=not args.fail_fast,
+        progress_callback=_print_progress,
     )
     print(json.dumps(result, indent=2))
     return 0

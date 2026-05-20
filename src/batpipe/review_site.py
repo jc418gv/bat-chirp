@@ -80,7 +80,7 @@ def _build_review_entries(
                 "report_json": str(item.get("report_json") or ""),
                 "clip_start_s": item.get("clip_start_s"),
                 "clip_end_s": item.get("clip_end_s"),
-                "expanded_train_segment_count": item.get("expanded_train_segment_count"),
+                "activity_segment_count": item.get("activity_segment_count"),
                 "detections_in_clip": item.get("detections_in_clip"),
             }
         )
@@ -114,7 +114,7 @@ def _render_cards_html(entries: list[dict[str, object]], summary_dir: Path) -> s
         time_label = recording_start.strftime("%H:%M:%S") if hasattr(recording_start, "strftime") else str(recording_start)
         det_count = escape(str(entry["detection_count"]))
         clip_det = escape(str(entry["detections_in_clip"]))
-        segments = escape(str(entry["expanded_train_segment_count"]))
+        segments = escape(str(entry["activity_segment_count"]))
         clip_range = f"{entry['clip_start_s']}s – {entry['clip_end_s']}s"
         cards.append(
             f"""<article class="card">
@@ -122,7 +122,7 @@ def _render_cards_html(entries: list[dict[str, object]], summary_dir: Path) -> s
   <div class="card-body">
     <p class="card-time">{escape(time_label)}<span class="card-rank">rank {escape(str(entry['rank']))}</span></p>
     <p class="card-filename">{escape(str(entry['audio_name']))}</p>
-    <p class="card-stats">{det_count} detections · {escape(probability_text)} · {segments} segment{'s' if str(entry['expanded_train_segment_count']) != '1' else ''} · {escape(clip_range)}</p>
+        <p class="card-stats">{det_count} detections · {escape(probability_text)} · {segments} activity segment{'s' if str(entry['activity_segment_count']) != '1' else ''} · {escape(clip_range)}</p>
     <div class="links">
       <a class="pill primary" href="{escape(spectrogram_href)}">spectrogram</a>
       <a class="pill" href="{escape(audible_mp3_href)}">x8 mp3</a>

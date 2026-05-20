@@ -6,8 +6,8 @@ from pathlib import Path
 from batpipe.audiomoth import parse_audiomoth_timestamp
 from batpipe.review.acoustic import compute_spectrogram_db
 from batpipe.review.models import (
-    CandidateTrainRange,
-    CandidateTrainSegment,
+    ActivityExtent,
+    ActivitySegment,
     ClipDetection,
     ClipWindow,
     DetectionBout,
@@ -21,7 +21,7 @@ def render_review_spectrogram(
     window: ClipWindow,
     detections: list[ClipDetection],
     selected_bout: DetectionBout | None,
-    expanded_train: CandidateTrainRange | None,
+    activity_extent: ActivityExtent | None,
     output_path: Path,
     max_freq_hz: float,
     title: str,
@@ -58,7 +58,7 @@ def render_review_spectrogram(
     range_axis.set_xlim(0, clip_duration_s)
     range_axis.set_ylim(0, 1)
     range_axis.set_yticks([0.75, 0.25])
-    range_axis.set_yticklabels(["Detected", "Expanded"])
+    range_axis.set_yticklabels(["Detected", "Activity"])
     range_axis.tick_params(axis="y", length=0)
     range_axis.spines["top"].set_visible(False)
     range_axis.spines["right"].set_visible(False)
@@ -71,19 +71,19 @@ def render_review_spectrogram(
         range_axis.hlines(0.75, detected_start_s, detected_end_s, color="#8bd3dd", linewidth=3.0)
         range_axis.vlines([detected_start_s, detected_end_s], 0.68, 0.82, color="#8bd3dd", linewidth=2.0)
 
-    if expanded_train is not None:
-        segments = expanded_train.segments or [
-            CandidateTrainSegment(
-                start_time_s=expanded_train.start_time_s,
-                end_time_s=expanded_train.end_time_s,
-                peak_times_s=expanded_train.peak_times_s,
+    if activity_extent is not None:
+        segments = activity_extent.segments or [
+            ActivitySegment(
+                start_time_s=activity_extent.start_time_s,
+                end_time_s=activity_extent.end_time_s,
+                peak_times_s=activity_extent.peak_times_s,
             )
         ]
         for segment in segments:
-            expanded_start_s = max(0.0, segment.start_time_s)
-            expanded_end_s = min(clip_duration_s, segment.end_time_s)
-            range_axis.hlines(0.25, expanded_start_s, expanded_end_s, color="#f4d35e", linewidth=2.2, linestyles="--")
-            range_axis.vlines([expanded_start_s, expanded_end_s], 0.18, 0.32, color="#f4d35e", linewidth=1.6, linestyles="--")
+            activity_start_s = max(0.0, segment.start_time_s)
+            activity_end_s = min(clip_duration_s, segment.end_time_s)
+            range_axis.hlines(0.25, activity_start_s, activity_end_s, color="#f4d35e", linewidth=2.2, linestyles="--")
+            range_axis.vlines([activity_start_s, activity_end_s], 0.18, 0.32, color="#f4d35e", linewidth=1.6, linestyles="--")
 
     try:
         recording_start_dt = parse_audiomoth_timestamp(title)
@@ -108,24 +108,28 @@ def render_review_spectrogram(
             f"Detected: {_wc(selected_bout.start_time_s)} – {_wc(selected_bout.end_time_s)}"
             f"  ({selected_bout.detection_count} detection{'s' if selected_bout.detection_count != 1 else ''})"
         )
-    if expanded_train is not None:
+    if activity_extent is not None:
         seg_texts = [
             f"{_wc(seg.start_time_s + window.start_time_s)} – {_wc(seg.end_time_s + window.start_time_s)}"
-            for seg in (expanded_train.segments or [
-                CandidateTrainSegment(
-                    start_time_s=expanded_train.start_time_s,
-                    end_time_s=expanded_train.end_time_s,
-                    peak_times_s=expanded_train.peak_times_s,
+            for seg in (activity_extent.segments or [
+                ActivitySegment(
+                    start_time_s=activity_extent.start_time_s,
+                    end_time_s=activity_extent.end_time_s,
+                    peak_times_s=activity_extent.peak_times_s,
                 )
             ])[:4]
         ]
-        if expanded_train.segment_count > 4:
-            seg_texts.append(f"+{expanded_train.segment_count - 4} more")
+        if activity_extent.segment_count > 4:
+            seg_texts.append(f"+{activity_extent.segment_count - 4} more")
         footer_lines.append(
-            f"Expanded: {', '.join(seg_texts)}"
-            f"  ({len(expanded_train.peak_times_s)} peaks, {expanded_train.segment_count}"
-            f" segment{'s' if expanded_train.segment_count != 1 else ''})"
+            f"Activity: {', '.join(seg_texts)}"
+            f"  ({len(activity_extent.peak_times_s)} peaks, {activity_extent.segment_count}"
+            f" segment{'s' if activity_extent.segment_count != 1 else ''})"
         )
+        if activity_extent.left_boundary or activity_extent.right_boundary:
+            left_reason = activity_extent.left_boundary.stop_reason if activity_extent.left_boundary else "unknown"
+            right_reason = activity_extent.right_boundary.stop_reason if activity_extent.right_boundary else "unknown"
+            footer_lines.append(f"Edges: left {left_reason} · right {right_reason}")
     if footer_lines:
         range_axis.text(
             0.0,

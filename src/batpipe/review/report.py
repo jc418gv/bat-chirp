@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from pathlib import Path
 
-from batpipe.review.models import CLASSIFICATION_WARNING, CandidateTrainRange, ClipDetection, ClipWindow, DetectionBout
+from batpipe.review.models import ActivityExtent, CLASSIFICATION_WARNING, ClipDetection, ClipWindow, DetectionBout
 
 
 def build_review_report(
@@ -14,7 +14,7 @@ def build_review_report(
     sample_local_time: str,
     window: ClipWindow,
     selected_bout: DetectionBout | None,
-    expanded_train: CandidateTrainRange | None,
+    activity_extent: ActivityExtent | None,
     sample_rate_hz: int,
     audible_sample_rate_hz: int,
     slowdown_factor: int,
@@ -54,12 +54,15 @@ def build_review_report(
         "selected_bout_detection_count": selected_bout.detection_count if selected_bout else 0,
         "selected_bout_low_freq_hz": selected_bout.min_low_freq_hz if selected_bout else None,
         "selected_bout_high_freq_hz": selected_bout.max_high_freq_hz if selected_bout else None,
-        "expanded_train_start_s": expanded_train.start_time_s + window.start_time_s if expanded_train else None,
-        "expanded_train_end_s": expanded_train.end_time_s + window.start_time_s if expanded_train else None,
-        "expanded_train_duration_s": expanded_train.duration_s if expanded_train else None,
-        "expanded_train_peak_count": len(expanded_train.peak_times_s) if expanded_train else 0,
-        "expanded_train_segment_count": expanded_train.segment_count if expanded_train else 0,
-        "expanded_train_segments": [asdict(segment) for segment in expanded_train.segments] if expanded_train else [],
+        "activity_start_s": activity_extent.start_time_s + window.start_time_s if activity_extent else None,
+        "activity_end_s": activity_extent.end_time_s + window.start_time_s if activity_extent else None,
+        "activity_duration_s": activity_extent.duration_s if activity_extent else None,
+        "activity_peak_count": len(activity_extent.peak_times_s) if activity_extent else 0,
+        "activity_segment_count": activity_extent.segment_count if activity_extent else 0,
+        "activity_segments": [asdict(segment) for segment in activity_extent.segments] if activity_extent else [],
+        "activity_peak_evidence": [asdict(item) for item in activity_extent.peak_evidence] if activity_extent else [],
+        "activity_left_boundary": asdict(activity_extent.left_boundary) if activity_extent and activity_extent.left_boundary else None,
+        "activity_right_boundary": asdict(activity_extent.right_boundary) if activity_extent and activity_extent.right_boundary else None,
         "clip_mp3": str(clip_mp3_path) if clip_mp3_path else None,
         "audible_mp3": str(audible_mp3_path) if audible_mp3_path else None,
         "clip_truncated_at_file_start": window.start_time_s <= 0.0,

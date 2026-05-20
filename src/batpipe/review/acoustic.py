@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from batpipe.review.models import (
-    CandidateTrainRange,
-    CandidateTrainSegment,
+    ActivityBoundaryDecision,
+    ActivityExtent,
+    ActivityExtractionConfig,
+    ActivitySegment,
     ClipWindow,
     DetectionBout,
-    PeakDetectionConfig,
+    PeakEvidence,
     SpectrogramConfig,
 )
 
@@ -63,18 +65,18 @@ def estimate_band_envelope_db(
     return band_envelope_db
 
 
-def _build_candidate_train_segments(
+def _build_activity_segments(
     peak_times_s,
     half_bin_s: float,
     max_peak_gap_s: float,
-) -> list[CandidateTrainSegment]:
+) -> list[ActivitySegment]:
     import numpy as np
 
     peak_times = np.asarray(peak_times_s, dtype=float)
     if peak_times.size == 0:
         return []
 
-    segments: list[CandidateTrainSegment] = []
+    segments: list[ActivitySegment] = []
     start_index = 0
     for index in range(1, peak_times.size):
         if (peak_times[index] - peak_times[index - 1]) <= max_peak_gap_s:
@@ -82,7 +84,7 @@ def _build_candidate_train_segments(
 
         segment_peak_times = peak_times[start_index:index]
         segments.append(
-            CandidateTrainSegment(
+            ActivitySegment(
                 start_time_s=max(0.0, float(segment_peak_times[0] - half_bin_s)),
                 end_time_s=float(segment_peak_times[-1] + half_bin_s),
                 peak_times_s=[float(value) for value in segment_peak_times],
@@ -92,7 +94,7 @@ def _build_candidate_train_segments(
 
     segment_peak_times = peak_times[start_index:]
     segments.append(
-        CandidateTrainSegment(
+        ActivitySegment(
             start_time_s=max(0.0, float(segment_peak_times[0] - half_bin_s)),
             end_time_s=float(segment_peak_times[-1] + half_bin_s),
             peak_times_s=[float(value) for value in segment_peak_times],
@@ -101,22 +103,22 @@ def _build_candidate_train_segments(
     return segments
 
 
-def _segment_peak_gap_s(left: CandidateTrainSegment, right: CandidateTrainSegment) -> float:
+def _segment_peak_gap_s(left: ActivitySegment, right: ActivitySegment) -> float:
     return float(right.peak_times_s[0] - left.peak_times_s[-1])
 
 
 def _select_anchor_connected_segments(
-    segments: list[CandidateTrainSegment],
+    segments: list[ActivitySegment],
     anchor_start_s: float,
     anchor_end_s: float,
-    max_train_extension_s: float,
+    max_activity_extension_s: float,
     connection_gap_s: float,
-) -> list[CandidateTrainSegment]:
+) -> list[ActivitySegment]:
     if not segments:
         return []
 
-    anchor_overlap_start_s = anchor_start_s - max_train_extension_s
-    anchor_overlap_end_s = anchor_end_s + max_train_extension_s
+    anchor_overlap_start_s = anchor_start_s - max_activity_extension_s
+    anchor_overlap_end_s = anchor_end_s + max_activity_extension_s
     seed_indices = [
         index
         for index, segment in enumerate(segments)
@@ -125,7 +127,7 @@ def _select_anchor_connected_segments(
     if not seed_indices:
         anchor_midpoint_s = (anchor_start_s + anchor_end_s) / 2.0
 
-        def distance_to_anchor(segment: CandidateTrainSegment) -> float:
+        def distance_to_anchor(segment: ActivitySegment) -> float:
             if segment.start_time_s <= anchor_midpoint_s <= segment.end_time_s:
                 return 0.0
             if anchor_midpoint_s < segment.start_time_s:
@@ -150,14 +152,14 @@ def _select_anchor_connected_segments(
     return segments[left_index : right_index + 1]
 
 
-def _merge_candidate_train_segments(
-    segments: list[CandidateTrainSegment],
-) -> list[CandidateTrainSegment]:
+def _merge_activity_segments(
+    segments: list[ActivitySegment],
+) -> list[ActivitySegment]:
     if not segments:
         return []
 
     return [
-        CandidateTrainSegment(
+        ActivitySegment(
             start_time_s=min(segment.start_time_s for segment in segments),
             end_time_s=max(segment.end_time_s for segment in segments),
             peak_times_s=[
@@ -169,19 +171,68 @@ def _merge_candidate_train_segments(
     ]
 
 
-def estimate_candidate_train_range(
+def _build_peak_evidence(
+    peak_times_s,
+    peak_levels_db,
+    segments: list[ActivitySegment],
+    *,
+    anchor_start_s: float,
+    anchor_end_s: float,
+    anchor_level_db: float,
+) -> list[PeakEvidence]:
+    included_peak_times = {
+        round(float(peak_time_s), 9)
+        for segment in segments
+        for peak_time_s in segment.peak_times_s
+    }
+    evidence: list[PeakEvidence] = []
+    for peak_time_s, peak_level_db in zip(peak_times_s, peak_levels_db):
+        peak_time = float(peak_time_s)
+        peak_level = float(peak_level_db)
+        evidence.append(
+            PeakEvidence(
+                time_s=peak_time,
+                envelope_db=peak_level,
+                relative_level_db=peak_level - anchor_level_db,
+                within_anchor=anchor_start_s <= peak_time <= anchor_end_s,
+                included_in_activity=round(peak_time, 9) in included_peak_times,
+            )
+        )
+    return evidence
+
+
+def _build_boundary_decision(
+    *,
+    boundary: str,
+    anchor_time_s: float,
+    activity_time_s: float,
+    stop_reason: str,
+    included_peak_count: int,
+    segment_count: int,
+) -> ActivityBoundaryDecision:
+    return ActivityBoundaryDecision(
+        boundary=boundary,
+        anchor_time_s=anchor_time_s,
+        activity_time_s=activity_time_s,
+        stop_reason=stop_reason,
+        included_peak_count=included_peak_count,
+        segment_count=segment_count,
+    )
+
+
+def extract_activity_extent(
     times_s,
     band_envelope_db,
     anchor_start_s: float,
     anchor_end_s: float,
     max_peak_gap_s: float = 0.25,
-    max_train_extension_s: float = 1.0,
-) -> CandidateTrainRange | None:
-    config = PeakDetectionConfig(
+    max_activity_extension_s: float = 1.0,
+) -> ActivityExtent | None:
+    config = ActivityExtractionConfig(
         max_peak_gap_s=max_peak_gap_s,
-        max_train_extension_s=max_train_extension_s,
+        max_activity_extension_s=max_activity_extension_s,
     )
-    return estimate_candidate_train_range_with_config(
+    return extract_activity_extent_with_config(
         times_s=times_s,
         band_envelope_db=band_envelope_db,
         anchor_start_s=anchor_start_s,
@@ -190,17 +241,17 @@ def estimate_candidate_train_range(
     )
 
 
-def estimate_candidate_train_range_with_config(
+def extract_activity_extent_with_config(
     times_s,
     band_envelope_db,
     anchor_start_s: float,
     anchor_end_s: float,
-    config: PeakDetectionConfig | None = None,
-) -> CandidateTrainRange | None:
+    config: ActivityExtractionConfig | None = None,
+) -> ActivityExtent | None:
     import numpy as np
     from scipy import signal
 
-    config = config or PeakDetectionConfig()
+    config = config or ActivityExtractionConfig()
 
     times = np.asarray(times_s, dtype=float)
     envelope = np.asarray(band_envelope_db, dtype=float)
@@ -216,7 +267,38 @@ def estimate_candidate_train_range_with_config(
     envelope[~finite_mask] = floor
 
     if times.size == 1:
-        return CandidateTrainRange(float(times[0]), float(times[0]), [float(times[0])], [])
+        peak_time_s = float(times[0])
+        return ActivityExtent(
+            start_time_s=peak_time_s,
+            end_time_s=peak_time_s,
+            peak_times_s=[peak_time_s],
+            segments=[],
+            peak_evidence=[
+                PeakEvidence(
+                    time_s=peak_time_s,
+                    envelope_db=float(envelope[0]),
+                    relative_level_db=0.0,
+                    within_anchor=anchor_start_s <= peak_time_s <= anchor_end_s,
+                    included_in_activity=True,
+                )
+            ],
+            left_boundary=_build_boundary_decision(
+                boundary="left",
+                anchor_time_s=anchor_start_s,
+                activity_time_s=peak_time_s,
+                stop_reason="single_frame_activity",
+                included_peak_count=1,
+                segment_count=0,
+            ),
+            right_boundary=_build_boundary_decision(
+                boundary="right",
+                anchor_time_s=anchor_end_s,
+                activity_time_s=peak_time_s,
+                stop_reason="single_frame_activity",
+                included_peak_count=1,
+                segment_count=0,
+            ),
+        )
 
     time_step_s = float(np.median(np.diff(times))) if times.size > 1 else 0.01
     min_peak_distance = max(1, int(round(config.min_peak_distance_s / max(time_step_s, 1e-6))))
@@ -242,30 +324,96 @@ def estimate_candidate_train_range_with_config(
     if peak_indices.size == 0:
         peak_indices, _ = signal.find_peaks(envelope, height=threshold, distance=min_peak_distance)
     if peak_indices.size == 0:
-        return CandidateTrainRange(anchor_start_s, anchor_end_s, [], [])
+        return ActivityExtent(
+            start_time_s=anchor_start_s,
+            end_time_s=anchor_end_s,
+            peak_times_s=[],
+            segments=[],
+            peak_evidence=[],
+            left_boundary=_build_boundary_decision(
+                boundary="left",
+                anchor_time_s=anchor_start_s,
+                activity_time_s=anchor_start_s,
+                stop_reason="no_activity_peaks",
+                included_peak_count=0,
+                segment_count=0,
+            ),
+            right_boundary=_build_boundary_decision(
+                boundary="right",
+                anchor_time_s=anchor_end_s,
+                activity_time_s=anchor_end_s,
+                stop_reason="no_activity_peaks",
+                included_peak_count=0,
+                segment_count=0,
+            ),
+        )
 
     peak_times = times[peak_indices]
+    peak_levels = envelope[peak_indices]
     inter_peak_intervals_s = np.diff(peak_times)
     if inter_peak_intervals_s.size > 0:
         connection_gap_s = min(float(np.mean(inter_peak_intervals_s)) * 2.5, config.max_connection_gap_s)
     else:
         connection_gap_s = min(config.max_peak_gap_s * 2.0, config.max_connection_gap_s)
     half_bin_s = time_step_s / 2.0
-    segments = _build_candidate_train_segments(peak_times, half_bin_s, config.max_peak_gap_s)
+    segments = _build_activity_segments(peak_times, half_bin_s, config.max_peak_gap_s)
     segments = _select_anchor_connected_segments(
         segments,
         anchor_start_s=anchor_start_s,
         anchor_end_s=anchor_end_s,
-        max_train_extension_s=config.max_train_extension_s,
+        max_activity_extension_s=config.max_activity_extension_s,
         connection_gap_s=connection_gap_s,
     )
-    segments = _merge_candidate_train_segments(segments)
+    segments = _merge_activity_segments(segments)
     if not segments:
-        return CandidateTrainRange(anchor_start_s, anchor_end_s, [], [])
+        return ActivityExtent(
+            start_time_s=anchor_start_s,
+            end_time_s=anchor_end_s,
+            peak_times_s=[],
+            segments=[],
+            peak_evidence=_build_peak_evidence(
+                peak_times,
+                peak_levels,
+                [],
+                anchor_start_s=anchor_start_s,
+                anchor_end_s=anchor_end_s,
+                anchor_level_db=anchor_level,
+            ),
+            left_boundary=_build_boundary_decision(
+                boundary="left",
+                anchor_time_s=anchor_start_s,
+                activity_time_s=anchor_start_s,
+                stop_reason="disconnected_activity",
+                included_peak_count=0,
+                segment_count=0,
+            ),
+            right_boundary=_build_boundary_decision(
+                boundary="right",
+                anchor_time_s=anchor_end_s,
+                activity_time_s=anchor_end_s,
+                stop_reason="disconnected_activity",
+                included_peak_count=0,
+                segment_count=0,
+            ),
+        )
 
     start_time_s = min(segment.start_time_s for segment in segments)
     end_time_s = max(segment.end_time_s for segment in segments)
-    return CandidateTrainRange(
+    peak_evidence = _build_peak_evidence(
+        peak_times,
+        peak_levels,
+        segments,
+        anchor_start_s=anchor_start_s,
+        anchor_end_s=anchor_end_s,
+        anchor_level_db=anchor_level,
+    )
+    included_peak_count = sum(1 for item in peak_evidence if item.included_in_activity)
+    included_peak_times = [item.time_s for item in peak_evidence if item.included_in_activity]
+    left_extended = bool(included_peak_times) and min(included_peak_times) < anchor_start_s
+    right_extended = bool(included_peak_times) and max(included_peak_times) > anchor_end_s
+    left_stop_reason = "disconnected_activity" if left_extended else "anchor_edge"
+    right_stop_reason = "disconnected_activity" if right_extended else "anchor_edge"
+    return ActivityExtent(
         start_time_s=start_time_s,
         end_time_s=end_time_s,
         peak_times_s=[
@@ -274,21 +422,38 @@ def estimate_candidate_train_range_with_config(
             for peak_time_s in segment.peak_times_s
         ],
         segments=segments,
+        peak_evidence=peak_evidence,
+        left_boundary=_build_boundary_decision(
+            boundary="left",
+            anchor_time_s=anchor_start_s,
+            activity_time_s=start_time_s,
+            stop_reason=left_stop_reason,
+            included_peak_count=included_peak_count,
+            segment_count=len(segments),
+        ),
+        right_boundary=_build_boundary_decision(
+            boundary="right",
+            anchor_time_s=anchor_end_s,
+            activity_time_s=end_time_s,
+            stop_reason=right_stop_reason,
+            included_peak_count=included_peak_count,
+            segment_count=len(segments),
+        ),
     )
 
 
-def analyze_candidate_train(
+def extract_bat_activity(
     audio,
     sample_rate_hz: int,
     window: ClipWindow,
     selected_bout: DetectionBout | None,
     max_freq_hz: float,
-    peak_detection_config: PeakDetectionConfig | None = None,
+    activity_extraction_config: ActivityExtractionConfig | None = None,
     spectrogram_config: SpectrogramConfig | None = None,
-) -> CandidateTrainRange | None:
+) -> ActivityExtent | None:
     if selected_bout is None:
         return None
-    peak_detection_config = peak_detection_config or PeakDetectionConfig()
+    activity_extraction_config = activity_extraction_config or ActivityExtractionConfig()
     spectrogram_config = spectrogram_config or SpectrogramConfig()
 
     try:
@@ -308,10 +473,10 @@ def analyze_candidate_train(
 
     anchor_start_s = selected_bout.start_time_s - window.start_time_s
     anchor_end_s = selected_bout.end_time_s - window.start_time_s
-    return estimate_candidate_train_range_with_config(
+    return extract_activity_extent_with_config(
         times_s=times_s,
         band_envelope_db=band_envelope_db,
         anchor_start_s=anchor_start_s,
         anchor_end_s=anchor_end_s,
-        config=peak_detection_config,
+        config=activity_extraction_config,
     )
