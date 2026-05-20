@@ -92,6 +92,7 @@ def select_anchor_connected_segments(
     anchor_end_s: float,
     max_activity_extension_s: float,
     connection_gap_s: float,
+    adjacent_segment_merge_gap_s: float,
 ) -> list[ActivitySegment]:
     if not segments:
         return []
@@ -125,6 +126,16 @@ def select_anchor_connected_segments(
 
     while right_index < len(segments) - 1:
         if _segment_gap_s(segments[right_index], segments[right_index + 1]) > connection_gap_s:
+            break
+        right_index += 1
+
+    while left_index > 0:
+        if _segment_gap_s(segments[left_index - 1], segments[left_index]) > adjacent_segment_merge_gap_s:
+            break
+        left_index -= 1
+
+    while right_index < len(segments) - 1:
+        if _segment_gap_s(segments[right_index], segments[right_index + 1]) > adjacent_segment_merge_gap_s:
             break
         right_index += 1
 

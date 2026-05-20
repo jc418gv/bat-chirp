@@ -108,6 +108,7 @@ def extract_activity_extent_with_config(
         anchor_end_s=anchor_end_s,
         max_activity_extension_s=config.max_activity_extension_s,
         connection_gap_s=signal_evidence.connection_gap_s,
+        adjacent_segment_merge_gap_s=config.adjacent_segment_merge_gap_s,
     )
     segments = merge_activity_segments(segments)
     if not segments:

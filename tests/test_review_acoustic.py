@@ -300,6 +300,58 @@ class ReviewAcousticTests(unittest.TestCase):
         self.assertEqual(estimated.left_boundary.stop_reason if estimated and estimated.left_boundary else "", "anchor_edge")
         self.assertEqual(estimated.right_boundary.stop_reason if estimated and estimated.right_boundary else "", "anchor_edge")
 
+    def test_extract_activity_extent_limits_low_contrast_anchor_expansion(self) -> None:
+        times_s = np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8])
+        band_envelope_db = np.array([-18.0, -17.5, -16.5, -16.2, -10.0, -16.0, -16.4, -17.2, -18.0])
+        concentration_score = np.array([0.02, 0.07, 0.28, 0.31, 0.52, 0.3, 0.27, 0.08, 0.03])
+
+        estimated = extract_activity_extent_with_config(
+            times_s=times_s,
+            band_envelope_db=band_envelope_db,
+            anchor_start_s=0.38,
+            anchor_end_s=0.42,
+            config=ActivityExtractionConfig(max_peak_gap_s=0.12, max_activity_extension_s=0.3, min_anchor_contrast_db=8.0),
+            concentration_score=concentration_score,
+        )
+
+        self.assertIsNotNone(estimated)
+        self.assertAlmostEqual(estimated.start_time_s if estimated else -1.0, 0.35)
+        self.assertAlmostEqual(estimated.end_time_s if estimated else -1.0, 0.45)
+        self.assertEqual(len(estimated.peak_times_s if estimated else []), 1)
+        self.assertEqual(estimated.left_boundary.stop_reason if estimated and estimated.left_boundary else "", "anchor_edge")
+        self.assertEqual(estimated.right_boundary.stop_reason if estimated and estimated.right_boundary else "", "anchor_edge")
+
+    def test_extract_activity_extent_merges_adjacent_segments_with_small_gap(self) -> None:
+        times_s = np.arange(0.0, 3.1, 0.1)
+        band_envelope_db = np.full(times_s.shape, -40.0)
+        concentration_score = np.zeros(times_s.shape)
+
+        for center_time_s, level_db in ((0.9, -11.0), (1.0, -10.0), (1.1, -11.5), (2.3, -12.0), (2.4, -11.0), (2.5, -12.5)):
+            index = int(round(center_time_s / 0.1))
+            band_envelope_db[index] = level_db
+            concentration_score[index] = 0.42
+
+        estimated = extract_activity_extent_with_config(
+            times_s=times_s,
+            band_envelope_db=band_envelope_db,
+            anchor_start_s=0.98,
+            anchor_end_s=1.02,
+            config=ActivityExtractionConfig(
+                max_peak_gap_s=0.15,
+                max_activity_extension_s=0.3,
+                max_silence_gap_s=0.12,
+                max_connection_gap_s=0.5,
+                adjacent_segment_merge_gap_s=2.0,
+            ),
+            concentration_score=concentration_score,
+        )
+
+        self.assertIsNotNone(estimated)
+        self.assertEqual(estimated.segment_count if estimated else -1, 1)
+        self.assertAlmostEqual(estimated.start_time_s if estimated else -1.0, 0.85)
+        self.assertAlmostEqual(estimated.end_time_s if estimated else -1.0, 2.55)
+        self.assertEqual(len(estimated.peak_times_s if estimated else []), 2)
+
     def test_build_review_report_summarizes_peak_concentration(self) -> None:
         activity_extent = ActivityExtent(
             start_time_s=0.3,
