@@ -147,6 +147,7 @@ def merge_activity_segments(segments: list[ActivitySegment]) -> list[ActivitySeg
 def build_peak_evidence(
     peak_times_s,
     peak_levels_db,
+    peak_concentration_scores,
     segments: list[ActivitySegment],
     *,
     anchor_start_s: float,
@@ -159,7 +160,7 @@ def build_peak_evidence(
         for peak_time_s in segment.peak_times_s
     }
     evidence: list[PeakEvidence] = []
-    for peak_time_s, peak_level_db in zip(peak_times_s, peak_levels_db):
+    for peak_time_s, peak_level_db, peak_concentration_score in zip(peak_times_s, peak_levels_db, peak_concentration_scores):
         peak_time = float(peak_time_s)
         peak_level = float(peak_level_db)
         evidence.append(
@@ -169,6 +170,7 @@ def build_peak_evidence(
                 relative_level_db=peak_level - anchor_level_db,
                 within_anchor=anchor_start_s <= peak_time <= anchor_end_s,
                 included_in_activity=round(peak_time, 9) in included_peak_times,
+                concentration_score=float(peak_concentration_score),
             )
         )
     return evidence

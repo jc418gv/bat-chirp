@@ -30,6 +30,7 @@ def extract_activity_extent(
     anchor_end_s: float,
     max_peak_gap_s: float = 0.25,
     max_activity_extension_s: float = 1.0,
+    concentration_score=None,
 ) -> ActivityExtent | None:
     config = ActivityExtractionConfig(
         max_peak_gap_s=max_peak_gap_s,
@@ -38,6 +39,7 @@ def extract_activity_extent(
     return extract_activity_extent_with_config(
         times_s=times_s,
         band_envelope_db=band_envelope_db,
+        concentration_score=concentration_score,
         anchor_start_s=anchor_start_s,
         anchor_end_s=anchor_end_s,
         config=config,
@@ -50,6 +52,7 @@ def extract_activity_extent_with_config(
     anchor_start_s: float,
     anchor_end_s: float,
     config: ActivityExtractionConfig | None = None,
+    concentration_score=None,
 ) -> ActivityExtent | None:
     import numpy as np
 
@@ -57,13 +60,17 @@ def extract_activity_extent_with_config(
 
     times = np.asarray(times_s, dtype=float)
     envelope = np.asarray(band_envelope_db, dtype=float)
+    concentration = np.ones_like(envelope, dtype=float) if concentration_score is None else np.asarray(concentration_score, dtype=float)
     if times.size == 0 or envelope.size == 0 or times.size != envelope.size:
+        return None
+    if concentration.size != envelope.size:
         return None
 
     if times.size == 1:
         return build_single_frame_extent(
             peak_time_s=float(times[0]),
             envelope_db=float(envelope[0]),
+            concentration_score=float(concentration[0]),
             anchor_start_s=anchor_start_s,
             anchor_end_s=anchor_end_s,
         )
@@ -71,6 +78,7 @@ def extract_activity_extent_with_config(
     signal_evidence = analyze_activity_signal(
         times_s=times,
         band_envelope_db=envelope,
+        concentration_score=concentration,
         anchor_start_s=anchor_start_s,
         anchor_end_s=anchor_end_s,
         config=config,
@@ -108,6 +116,7 @@ def extract_activity_extent_with_config(
             anchor_end_s=anchor_end_s,
             peak_times_s=signal_evidence.peak_times_s,
             peak_levels_db=signal_evidence.peak_levels_db,
+            peak_concentration_scores=signal_evidence.peak_concentration_scores,
             anchor_level_db=signal_evidence.anchor_level_db,
         )
 
@@ -115,6 +124,7 @@ def extract_activity_extent_with_config(
         segments=segments,
         peak_times_s=signal_evidence.peak_times_s,
         peak_levels_db=signal_evidence.peak_levels_db,
+        peak_concentration_scores=signal_evidence.peak_concentration_scores,
         anchor_start_s=anchor_start_s,
         anchor_end_s=anchor_end_s,
         anchor_level_db=signal_evidence.anchor_level_db,
@@ -156,6 +166,7 @@ def extract_bat_activity(
     return extract_activity_extent_with_config(
         times_s=spectrogram_analysis.times_s,
         band_envelope_db=band_analysis.band_envelope_db,
+        concentration_score=band_analysis.concentration_score,
         anchor_start_s=anchor_start_s,
         anchor_end_s=anchor_end_s,
         config=activity_extraction_config,

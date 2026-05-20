@@ -6,7 +6,7 @@ import unittest
 
 import numpy as np
 
-from batpipe.review import ActivityExtent, ActivityExtractionConfig, ActivitySegment, ClipDetection, DetectionBout, ClipWindow, choose_clip_window, detections_in_window, extract_activity_extent, extract_activity_extent_with_config, format_sample_time_token, group_detection_bouts, render_review_spectrogram
+from batpipe.review import ActivityExtent, ActivityExtractionConfig, ActivitySegment, ClipDetection, DetectionBout, ClipWindow, PeakEvidence, build_review_report, choose_clip_window, detections_in_window, extract_activity_extent, extract_activity_extent_with_config, format_sample_time_token, group_detection_bouts, render_review_spectrogram
 
 
 class ReviewAcousticTests(unittest.TestCase):
@@ -236,6 +236,27 @@ class ReviewAcousticTests(unittest.TestCase):
         self.assertEqual(estimated.left_boundary.stop_reason if estimated and estimated.left_boundary else "", "activity_dropoff")
         self.assertEqual(estimated.right_boundary.stop_reason if estimated and estimated.right_boundary else "", "activity_dropoff")
 
+    def test_extract_activity_extent_extends_sustained_activity_when_concentration_is_high(self) -> None:
+        times_s = np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8])
+        band_envelope_db = np.array([-40.0, -35.0, -17.0, -16.0, -15.5, -16.2, -17.0, -35.0, -40.0])
+        concentration_score = np.array([0.0, 0.05, 0.31, 0.34, 0.38, 0.33, 0.29, 0.05, 0.0])
+
+        estimated = extract_activity_extent_with_config(
+            times_s=times_s,
+            band_envelope_db=band_envelope_db,
+            anchor_start_s=0.38,
+            anchor_end_s=0.52,
+            config=ActivityExtractionConfig(max_peak_gap_s=0.12, max_activity_extension_s=0.3),
+            concentration_score=concentration_score,
+        )
+
+        self.assertIsNotNone(estimated)
+        self.assertAlmostEqual(estimated.start_time_s if estimated else -1.0, 0.15)
+        self.assertAlmostEqual(estimated.end_time_s if estimated else -1.0, 0.65)
+        self.assertEqual(estimated.segment_count if estimated else -1, 1)
+        self.assertEqual(estimated.left_boundary.stop_reason if estimated and estimated.left_boundary else "", "activity_dropoff")
+        self.assertEqual(estimated.right_boundary.stop_reason if estimated and estimated.right_boundary else "", "activity_dropoff")
+
     def test_extract_activity_extent_does_not_extend_flat_noise_plateau(self) -> None:
         times_s = np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8])
         band_envelope_db = np.array([-40.0, -16.0, -16.0, -16.0, -10.0, -16.0, -16.0, -16.0, -40.0])
@@ -256,6 +277,73 @@ class ReviewAcousticTests(unittest.TestCase):
         self.assertEqual(len(estimated.peak_times_s if estimated else []), 1)
         self.assertEqual(estimated.left_boundary.stop_reason if estimated and estimated.left_boundary else "", "anchor_edge")
         self.assertEqual(estimated.right_boundary.stop_reason if estimated and estimated.right_boundary else "", "anchor_edge")
+
+    def test_extract_activity_extent_rejects_diffuse_noise_when_concentration_stays_low(self) -> None:
+        times_s = np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8])
+        band_envelope_db = np.array([-40.0, -16.0, -15.8, -15.9, -10.0, -15.7, -15.8, -16.0, -40.0])
+        concentration_score = np.array([0.0, 0.07, 0.08, 0.08, 0.46, 0.08, 0.07, 0.06, 0.0])
+
+        estimated = extract_activity_extent_with_config(
+            times_s=times_s,
+            band_envelope_db=band_envelope_db,
+            anchor_start_s=0.38,
+            anchor_end_s=0.42,
+            config=ActivityExtractionConfig(max_peak_gap_s=0.12, max_activity_extension_s=0.3),
+            concentration_score=concentration_score,
+        )
+
+        self.assertIsNotNone(estimated)
+        self.assertAlmostEqual(estimated.start_time_s if estimated else -1.0, 0.35)
+        self.assertAlmostEqual(estimated.end_time_s if estimated else -1.0, 0.45)
+        self.assertEqual(estimated.segment_count if estimated else -1, 1)
+        self.assertEqual(len(estimated.peak_times_s if estimated else []), 1)
+        self.assertEqual(estimated.left_boundary.stop_reason if estimated and estimated.left_boundary else "", "anchor_edge")
+        self.assertEqual(estimated.right_boundary.stop_reason if estimated and estimated.right_boundary else "", "anchor_edge")
+
+    def test_build_review_report_summarizes_peak_concentration(self) -> None:
+        activity_extent = ActivityExtent(
+            start_time_s=0.3,
+            end_time_s=0.8,
+            peak_times_s=[0.4, 0.6, 0.75],
+            segments=[ActivitySegment(start_time_s=0.3, end_time_s=0.8, peak_times_s=[0.4, 0.6, 0.75])],
+            peak_evidence=[
+                PeakEvidence(time_s=0.4, envelope_db=-11.0, relative_level_db=-1.0, within_anchor=True, included_in_activity=True, concentration_score=0.62),
+                PeakEvidence(time_s=0.6, envelope_db=-10.0, relative_level_db=0.0, within_anchor=False, included_in_activity=True, concentration_score=0.48),
+                PeakEvidence(time_s=0.75, envelope_db=-18.0, relative_level_db=-8.0, within_anchor=False, included_in_activity=False, concentration_score=0.09),
+            ],
+        )
+
+        report = build_review_report(
+            audio_path=Path("recordings/20260518_003900T.WAV"),
+            json_path=Path("detections/20260518_003900T.WAV.json"),
+            payload={"class_name": "bat"},
+            sample_local_time="003944",
+            window=ClipWindow(start_time_s=10.0, end_time_s=20.0),
+            selected_bout=DetectionBout(
+                start_time_s=10.35,
+                end_time_s=10.45,
+                detections=[ClipDetection(10.35, 10.45, 0.9, 0.6, "bat", "Echolocation", 38000.0, 45000.0)],
+            ),
+            activity_extent=activity_extent,
+            sample_rate_hz=256000,
+            audible_sample_rate_hz=32000,
+            slowdown_factor=8,
+            write_mp3=False,
+            mp3_bitrate="192k",
+            recording_duration_s=60.0,
+            padding_before_s=5.0,
+            padding_after_s=4.0,
+            bout_gap_s=0.5,
+            clip_start_s=None,
+            detections_for_clip=[],
+            clip_mp3_path=None,
+            audible_mp3_path=None,
+        )
+
+        self.assertAlmostEqual(report["activity_mean_concentration"], 0.55)
+        self.assertAlmostEqual(report["activity_min_concentration"], 0.48)
+        self.assertAlmostEqual(report["anchor_mean_concentration"], 0.62)
+        self.assertEqual(report["activity_peak_evidence"][2]["concentration_score"], 0.09)
 
     def test_render_review_spectrogram_aligns_footer_axis_with_spectrogram_axis(self) -> None:
         captured_positions: dict[str, tuple[float, float, float, float] | tuple[float, float]] = {}

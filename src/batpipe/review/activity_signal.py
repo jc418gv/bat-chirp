@@ -13,13 +13,16 @@ class ActivitySignalEvidence:
     anchor_level_db: float
     peak_times_s: object
     peak_levels_db: object
+    peak_concentration_scores: object
     active_mask: object
+    concentration_score: object
     connection_gap_s: float
 
 
 def analyze_activity_signal(
     times_s,
     band_envelope_db,
+    concentration_score,
     anchor_start_s: float,
     anchor_end_s: float,
     config: ActivityExtractionConfig,
@@ -29,7 +32,10 @@ def analyze_activity_signal(
 
     times = np.asarray(times_s, dtype=float)
     envelope = np.asarray(band_envelope_db, dtype=float)
+    concentration = np.asarray(concentration_score, dtype=float)
     if times.size == 0 or envelope.size == 0 or times.size != envelope.size:
+        return None
+    if concentration.size != envelope.size:
         return None
 
     finite_mask = np.isfinite(envelope)
@@ -37,8 +43,11 @@ def analyze_activity_signal(
         return None
 
     envelope = envelope.copy()
+    concentration = concentration.copy()
     floor = float(np.nanpercentile(envelope[finite_mask], config.floor_percentile))
     envelope[~finite_mask] = floor
+    concentration[~np.isfinite(concentration)] = 0.0
+    concentration = np.clip(concentration, 0.0, 1.0)
     time_step_s = float(np.median(np.diff(times))) if times.size > 1 else 0.01
     min_peak_distance = max(1, int(round(config.min_peak_distance_s / max(time_step_s, 1e-6))))
 
@@ -70,6 +79,7 @@ def analyze_activity_signal(
         peak_indices, _ = signal.find_peaks(envelope, height=threshold, distance=min_peak_distance)
     peak_times = times[peak_indices]
     peak_levels = envelope[peak_indices] if peak_indices.size > 0 else np.asarray([], dtype=float)
+    peak_concentration_scores = concentration[peak_indices] if peak_indices.size > 0 else np.asarray([], dtype=float)
 
     local_max = np.maximum.reduce([
         envelope,
@@ -94,7 +104,9 @@ def analyze_activity_signal(
             right_index = min(envelope.size, int(peak_index) + peak_support_radius + 1)
             peak_support_mask[left_index:right_index] = True
 
-    active_mask = (envelope >= activity_threshold) & ((local_contrast >= modulation_threshold) | peak_support_mask)
+    concentration_mask = concentration >= config.concentration_threshold
+    temporal_support_mask = (local_contrast >= modulation_threshold) & peak_support_mask
+    active_mask = (envelope >= activity_threshold) & (concentration_mask | temporal_support_mask)
     active_mask |= anchor_mask
 
     inter_peak_intervals_s = np.diff(peak_times)
@@ -110,6 +122,8 @@ def analyze_activity_signal(
         anchor_level_db=anchor_level,
         peak_times_s=peak_times,
         peak_levels_db=peak_levels,
+        peak_concentration_scores=peak_concentration_scores,
         active_mask=active_mask,
+        concentration_score=concentration,
         connection_gap_s=connection_gap_s,
     )

@@ -89,6 +89,7 @@ class PeakEvidence:
     relative_level_db: float
     within_anchor: bool
     included_in_activity: bool
+    concentration_score: float | None = None
 
 
 @dataclass(slots=True)
@@ -135,6 +136,7 @@ class ActivityExtractionConfig:
     floor_percentile: float = 35.0
     activity_threshold_ratio: float = 0.16
     activity_modulation_ratio: float = 0.05
+    concentration_threshold: float = 0.22
     threshold_ratio: float = 0.28
     prominence_ratio: float = 0.12
     min_peak_distance_s: float = 0.03

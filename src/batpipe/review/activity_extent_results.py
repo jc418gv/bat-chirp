@@ -8,6 +8,7 @@ def build_single_frame_extent(
     *,
     peak_time_s: float,
     envelope_db: float,
+    concentration_score: float | None,
     anchor_start_s: float,
     anchor_end_s: float,
 ) -> ActivityExtent:
@@ -23,6 +24,7 @@ def build_single_frame_extent(
                 relative_level_db=0.0,
                 within_anchor=anchor_start_s <= peak_time_s <= anchor_end_s,
                 included_in_activity=True,
+                concentration_score=concentration_score,
             )
         ],
         left_boundary=build_boundary_decision(
@@ -81,6 +83,7 @@ def build_disconnected_extent(
     anchor_end_s: float,
     peak_times_s,
     peak_levels_db,
+    peak_concentration_scores,
     anchor_level_db: float,
 ) -> ActivityExtent:
     return ActivityExtent(
@@ -91,6 +94,7 @@ def build_disconnected_extent(
         peak_evidence=build_peak_evidence(
             peak_times_s,
             peak_levels_db,
+            peak_concentration_scores,
             [],
             anchor_start_s=anchor_start_s,
             anchor_end_s=anchor_end_s,
@@ -120,6 +124,7 @@ def build_extent_from_segments(
     segments,
     peak_times_s,
     peak_levels_db,
+    peak_concentration_scores,
     anchor_start_s: float,
     anchor_end_s: float,
     anchor_level_db: float,
@@ -130,6 +135,7 @@ def build_extent_from_segments(
     peak_evidence = build_peak_evidence(
         peak_times_s,
         peak_levels_db,
+        peak_concentration_scores,
         segments,
         anchor_start_s=anchor_start_s,
         anchor_end_s=anchor_end_s,

@@ -22,6 +22,9 @@ class DetectionBandAnalysis:
     band_frequencies_hz: Any
     band_spectrum_db: Any
     band_envelope_db: Any
+    dominant_bin_share: Any
+    normalized_entropy: Any
+    concentration_score: Any
 
 
 def compute_spectrogram_db(audio, sample_rate_hz: int, config: SpectrogramConfig) -> SpectrogramAnalysis:
@@ -78,6 +81,19 @@ def estimate_band_envelope_db(
     band_spectrum = spectrum_db[band_mask].copy()
     band_spectrum -= np.nanmean(band_spectrum, axis=1, keepdims=True)
     np.maximum(band_spectrum, 0.0, out=band_spectrum)
+    band_energy = np.maximum(band_spectrum, 1e-12)
+    frame_energy = np.sum(band_energy, axis=0)
+    zero_energy_mask = frame_energy <= 1e-9
+    frame_energy = np.where(zero_energy_mask, 1.0, frame_energy)
+    probabilities = band_energy / frame_energy[np.newaxis, :]
+    dominant_bin_share = np.max(probabilities, axis=0)
+    entropy = -np.sum(probabilities * np.log(probabilities), axis=0)
+    max_entropy = np.log(float(max(2, band_energy.shape[0])))
+    normalized_entropy = np.clip(entropy / max_entropy, 0.0, 1.0)
+    concentration_score = 0.5 * (dominant_bin_share + (1.0 - normalized_entropy))
+    dominant_bin_share[zero_energy_mask] = 0.0
+    normalized_entropy[zero_energy_mask] = 1.0
+    concentration_score[zero_energy_mask] = 0.0
     band_envelope_db = np.nanpercentile(band_spectrum, config.envelope_percentile, axis=0)
     band_envelope_db = ndimage.gaussian_filter1d(band_envelope_db, sigma=config.gaussian_sigma, mode="nearest")
     return DetectionBandAnalysis(
@@ -86,4 +102,7 @@ def estimate_band_envelope_db(
         band_frequencies_hz=frequencies_hz[band_mask],
         band_spectrum_db=band_spectrum,
         band_envelope_db=band_envelope_db,
+        dominant_bin_share=dominant_bin_share,
+        normalized_entropy=normalized_entropy,
+        concentration_score=concentration_score,
     )
