@@ -4,8 +4,8 @@ from dataclasses import asdict
 from pathlib import Path
 
 from batpipe.aggregate import summarize_detection_directory
-from batpipe.batch_validate import export_validation_batch
 from batpipe.detect import build_detection_plan, command_as_shell_string, run_detection_plan, write_detection_plan
+from batpipe.review import export_review_batch
 from batpipe.review_site import build_review_site
 from batpipe.site_config import SiteConfig, resolve_site_path
 
@@ -98,7 +98,7 @@ def run_night_pipeline(
 
     if not skip_review and review_output_dir is not None:
         _ensure_output_directory(review_output_dir, "review_output_dir")
-        review_outputs = export_validation_batch(
+        review_outputs = export_review_batch(
             audio_dir=input_dir,
             json_dir=detection_output_dir,
             output_dir=review_output_dir,

@@ -2,15 +2,15 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from batpipe.validate import CandidateTrainRange, CandidateTrainSegment, ClipDetection, DetectionBout, ClipWindow, _format_sample_time_token, choose_clip_window, detections_in_window, estimate_candidate_train_range, group_detection_bouts, render_validation_spectrogram
+from batpipe.review import CandidateTrainRange, CandidateTrainSegment, ClipDetection, DetectionBout, ClipWindow, PeakDetectionConfig, choose_clip_window, detections_in_window, estimate_candidate_train_range, estimate_candidate_train_range_with_config, format_sample_time_token, group_detection_bouts, render_review_spectrogram
 import unittest
 
 import numpy as np
 
 
-class ValidateTests(unittest.TestCase):
+class ReviewAcousticTests(unittest.TestCase):
     def test_format_sample_time_token_uses_recording_local_clock(self) -> None:
-        sample_token = _format_sample_time_token(Path("20260518_020000T.WAV"), 20.9737)
+        sample_token = format_sample_time_token(Path("20260518_020000T.WAV"), 20.9737)
 
         self.assertEqual(sample_token, "020020")
 
@@ -136,54 +136,10 @@ class ValidateTests(unittest.TestCase):
 
     def test_estimate_candidate_train_range_bridges_anchor_connected_gaps(self) -> None:
         times_s = np.array([
-            0.0,
-            0.05,
-            0.1,
-            0.15,
-            0.2,
-            0.25,
-            0.3,
-            0.35,
-            0.4,
-            0.45,
-            0.5,
-            0.55,
-            0.6,
-            0.65,
-            0.7,
-            0.75,
-            0.8,
-            0.85,
-            0.9,
-            0.95,
-            1.0,
-            1.05,
-            1.1,
+            0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0, 1.05, 1.1,
         ])
         band_envelope_db = np.array([
-            -40.0,
-            -40.0,
-            -12.0,
-            -40.0,
-            -40.0,
-            -13.0,
-            -40.0,
-            -40.0,
-            -40.0,
-            -40.0,
-            -40.0,
-            -11.0,
-            -40.0,
-            -40.0,
-            -10.0,
-            -40.0,
-            -40.0,
-            -40.0,
-            -40.0,
-            -40.0,
-            -40.0,
-            -9.0,
-            -40.0,
+            -40.0, -40.0, -12.0, -40.0, -40.0, -13.0, -40.0, -40.0, -40.0, -40.0, -40.0, -11.0, -40.0, -40.0, -10.0, -40.0, -40.0, -40.0, -40.0, -40.0, -40.0, -9.0, -40.0,
         ])
 
         estimated = estimate_candidate_train_range(
@@ -204,25 +160,7 @@ class ValidateTests(unittest.TestCase):
     def test_estimate_candidate_train_range_bridges_up_to_average_gap_multiplier(self) -> None:
         times_s = np.array([0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9])
         band_envelope_db = np.array([
-            -40.0,
-            -40.0,
-            -12.0,
-            -40.0,
-            -40.0,
-            -13.0,
-            -40.0,
-            -40.0,
-            -14.0,
-            -40.0,
-            -40.0,
-            -40.0,
-            -40.0,
-            -40.0,
-            -40.0,
-            -40.0,
-            -9.0,
-            -40.0,
-            -40.0,
+            -40.0, -40.0, -12.0, -40.0, -40.0, -13.0, -40.0, -40.0, -14.0, -40.0, -40.0, -40.0, -40.0, -40.0, -40.0, -40.0, -9.0, -40.0, -40.0,
         ])
 
         estimated = estimate_candidate_train_range(
@@ -240,7 +178,24 @@ class ValidateTests(unittest.TestCase):
         self.assertAlmostEqual(estimated.end_time_s if estimated else -1.0, 0.825)
         self.assertEqual(len(estimated.peak_times_s if estimated else []), 4)
 
-    def test_render_validation_spectrogram_aligns_footer_axis_with_spectrogram_axis(self) -> None:
+    def test_estimate_candidate_train_range_with_config_matches_default_behavior(self) -> None:
+        times_s = np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6])
+        band_envelope_db = np.array([-40.0, -40.0, -10.0, -20.0, -11.0, -40.0, -40.0])
+
+        estimated = estimate_candidate_train_range_with_config(
+            times_s=times_s,
+            band_envelope_db=band_envelope_db,
+            anchor_start_s=0.38,
+            anchor_end_s=0.42,
+            config=PeakDetectionConfig(max_peak_gap_s=0.25, max_train_extension_s=0.3),
+        )
+
+        self.assertIsNotNone(estimated)
+        self.assertAlmostEqual(estimated.start_time_s if estimated else -1.0, 0.15)
+        self.assertAlmostEqual(estimated.end_time_s if estimated else -1.0, 0.45)
+        self.assertEqual(len(estimated.peak_times_s if estimated else []), 2)
+
+    def test_render_review_spectrogram_aligns_footer_axis_with_spectrogram_axis(self) -> None:
         captured_positions: dict[str, tuple[float, float, float, float] | tuple[float, float]] = {}
 
         def capture_savefig(figure, *args, **kwargs):
@@ -254,27 +209,19 @@ class ValidateTests(unittest.TestCase):
         selected_bout = DetectionBout(
             start_time_s=30.528,
             end_time_s=30.909,
-            detections=[
-                ClipDetection(30.528, 30.909, 0.667, 0.5, "bat", "Echolocation", 40000.0, 50000.0)
-            ],
+            detections=[ClipDetection(30.528, 30.909, 0.667, 0.5, "bat", "Echolocation", 40000.0, 50000.0)],
         )
         expanded_train = CandidateTrainRange(
             start_time_s=5.207,
             end_time_s=5.908,
             peak_times_s=[5.31, 5.45, 5.62],
-            segments=[
-                CandidateTrainSegment(
-                    start_time_s=5.207,
-                    end_time_s=5.908,
-                    peak_times_s=[5.31, 5.45, 5.62],
-                )
-            ],
+            segments=[CandidateTrainSegment(start_time_s=5.207, end_time_s=5.908, peak_times_s=[5.31, 5.45, 5.62])],
         )
 
         with TemporaryDirectory() as temp_dir:
             output_path = Path(temp_dir) / "spectrogram.png"
             with patch("matplotlib.figure.Figure.savefig", new=capture_savefig):
-                render_validation_spectrogram(
+                render_review_spectrogram(
                     audio=np.sin(np.linspace(0.0, 50.0, 4096, dtype=np.float32)),
                     sample_rate_hz=256000,
                     window=window,

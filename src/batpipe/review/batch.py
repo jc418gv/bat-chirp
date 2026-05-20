@@ -1,19 +1,12 @@
 from __future__ import annotations
 
 import csv
-from dataclasses import dataclass
 from pathlib import Path
 import json
 
 from batpipe.audiomoth import is_in_night_window, parse_audiomoth_timestamp
-from batpipe.validate import export_validation_clip
-
-
-@dataclass(slots=True)
-class ValidationBatchJob:
-    audio_path: Path
-    json_path: Path
-    output_dir: Path
+from batpipe.review.audio import export_review_clip
+from batpipe.review.models import ReviewBatchJob
 
 
 def write_review_assets_csv(items: list[dict[str, object]], output_path: Path) -> Path:
@@ -65,7 +58,7 @@ def _resolve_night_output_dir(
     return output_dir / night_token
 
 
-def discover_validation_jobs(
+def discover_review_jobs(
     audio_dir: Path,
     json_dir: Path,
     output_dir: Path,
@@ -74,18 +67,14 @@ def discover_validation_jobs(
     requested_night_token: str | None = None,
     night_start_hour: int = 18,
     night_end_hour: int = 12,
-) -> tuple[list[ValidationBatchJob], list[Path], int, Path]:
+) -> tuple[list[ReviewBatchJob], list[Path], int, Path]:
     if not audio_dir.exists():
         raise FileNotFoundError(f"Audio directory not found: {audio_dir}")
     if not json_dir.exists():
         raise FileNotFoundError(f"JSON directory not found: {json_dir}")
 
     active_filters = [value for value in (name_filters or []) if value]
-    audio_paths = list(
-        dict.fromkeys(
-            sorted(audio_dir.glob("*.WAV")) + sorted(audio_dir.glob("*.wav"))
-        )
-    )
+    audio_paths = list(dict.fromkeys(sorted(audio_dir.glob("*.WAV")) + sorted(audio_dir.glob("*.wav"))))
     if active_filters:
         audio_paths = [
             audio_path
@@ -96,12 +85,7 @@ def discover_validation_jobs(
         audio_paths = [
             audio_path
             for audio_path in audio_paths
-            if is_in_night_window(
-                audio_path.name,
-                requested_night_token,
-                night_start_hour,
-                night_end_hour,
-            )
+            if is_in_night_window(audio_path.name, requested_night_token, night_start_hour, night_end_hour)
         ]
 
     discovered_count = len(audio_paths)
@@ -114,7 +98,7 @@ def discover_validation_jobs(
         requested_night_token=requested_night_token,
     )
 
-    jobs: list[ValidationBatchJob] = []
+    jobs: list[ReviewBatchJob] = []
     missing_json_paths: list[Path] = []
     for audio_path in audio_paths:
         json_path = json_dir / f"{audio_path.name}.json"
@@ -122,7 +106,7 @@ def discover_validation_jobs(
             missing_json_paths.append(audio_path)
             continue
         jobs.append(
-            ValidationBatchJob(
+            ReviewBatchJob(
                 audio_path=audio_path,
                 json_path=json_path,
                 output_dir=night_output_dir / audio_path.stem,
@@ -132,7 +116,7 @@ def discover_validation_jobs(
     return jobs, missing_json_paths, discovered_count, night_output_dir
 
 
-def export_validation_batch(
+def export_review_batch(
     audio_dir: Path,
     json_dir: Path,
     output_dir: Path,
@@ -155,7 +139,7 @@ def export_validation_batch(
     night_end_hour: int = 12,
 ) -> dict[str, object]:
     output_dir.mkdir(parents=True, exist_ok=True)
-    jobs, missing_json_paths, discovered_count, night_output_dir = discover_validation_jobs(
+    jobs, missing_json_paths, discovered_count, night_output_dir = discover_review_jobs(
         audio_dir=audio_dir,
         json_dir=json_dir,
         output_dir=output_dir,
@@ -171,7 +155,7 @@ def export_validation_batch(
     failed_items: list[dict[str, object]] = []
     for job in jobs:
         try:
-            result = export_validation_clip(
+            result = export_review_clip(
                 audio_path=job.audio_path,
                 json_path=job.json_path,
                 output_dir=job.output_dir,

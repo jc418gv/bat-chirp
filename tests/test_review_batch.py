@@ -4,11 +4,11 @@ import json
 import unittest
 from unittest.mock import patch
 
-from batpipe.batch_validate import _resolve_night_output_dir, derive_night_token, discover_validation_jobs, export_validation_batch
+from batpipe.review.batch import _resolve_night_output_dir, derive_night_token, discover_review_jobs, export_review_batch
 
 
-class BatchValidateTests(unittest.TestCase):
-    def test_discover_validation_jobs_matches_wavs_to_jsons(self) -> None:
+class ReviewBatchTests(unittest.TestCase):
+    def test_discover_review_jobs_matches_wavs_to_jsons(self) -> None:
         with TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             audio_dir = root / "audio"
@@ -22,7 +22,7 @@ class BatchValidateTests(unittest.TestCase):
             (json_dir / "20260518_020000T.WAV.json").write_text("{}", encoding="utf-8")
             (json_dir / "20260518_030000T.wav.json").write_text("{}", encoding="utf-8")
 
-            jobs, missing_json_paths, discovered_count, night_output_dir = discover_validation_jobs(
+            jobs, missing_json_paths, discovered_count, night_output_dir = discover_review_jobs(
                 audio_dir=audio_dir,
                 json_dir=json_dir,
                 output_dir=output_dir,
@@ -46,22 +46,15 @@ class BatchValidateTests(unittest.TestCase):
         self.assertEqual(token, "20260518")
 
     def test_derive_night_token_prefers_requested_token(self) -> None:
-        token = derive_night_token(
-            [Path("20260519_001500T.WAV")],
-            requested_night_token="20260518",
-        )
+        token = derive_night_token([Path("20260519_001500T.WAV")], requested_night_token="20260518")
 
         self.assertEqual(token, "20260518")
 
     def test_resolve_night_output_dir_avoids_duplicate_date_folder(self) -> None:
-        target = _resolve_night_output_dir(
-            Path("c:/tmp/night-runs/20260518"),
-            [Path("20260518_020000T.WAV")],
-        )
-
+        target = _resolve_night_output_dir(Path("c:/tmp/night-runs/20260518"), [Path("20260518_020000T.WAV")])
         self.assertEqual(target, Path("c:/tmp/night-runs/20260518"))
 
-    def test_discover_validation_jobs_filters_to_night_window(self) -> None:
+    def test_discover_review_jobs_filters_to_night_window(self) -> None:
         with TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             audio_dir = root / "audio"
@@ -79,7 +72,7 @@ class BatchValidateTests(unittest.TestCase):
                 (audio_dir / name).write_bytes(b"wav")
                 (json_dir / f"{name}.json").write_text("{}", encoding="utf-8")
 
-            jobs, missing_json_paths, discovered_count, night_output_dir = discover_validation_jobs(
+            jobs, missing_json_paths, discovered_count, night_output_dir = discover_review_jobs(
                 audio_dir=audio_dir,
                 json_dir=json_dir,
                 output_dir=output_dir,
@@ -93,7 +86,7 @@ class BatchValidateTests(unittest.TestCase):
             self.assertEqual([job.audio_path.name for job in jobs], ["20260518_235500T.WAV", "20260519_000500T.WAV"])
             self.assertEqual(night_output_dir, output_dir / "20260518")
 
-    def test_export_validation_batch_writes_summary(self) -> None:
+    def test_export_review_batch_writes_summary(self) -> None:
         with TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             audio_dir = root / "audio"
@@ -107,7 +100,7 @@ class BatchValidateTests(unittest.TestCase):
             audio_path.write_bytes(b"wav")
             json_path.write_text("{}", encoding="utf-8")
 
-            with patch("batpipe.batch_validate.export_validation_clip") as mock_export:
+            with patch("batpipe.review.batch.export_review_clip") as mock_export:
                 mock_export.return_value = {
                     "sample_local_time": "220000",
                     "clip_wav": "clip.wav",
@@ -126,7 +119,7 @@ class BatchValidateTests(unittest.TestCase):
                     "detections_in_clip": 2,
                 }
 
-                result = export_validation_batch(
+                result = export_review_batch(
                     audio_dir=audio_dir,
                     json_dir=json_dir,
                     output_dir=output_dir,

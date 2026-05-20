@@ -1,0 +1,68 @@
+from __future__ import annotations
+
+from dataclasses import asdict
+from pathlib import Path
+
+from batpipe.review.models import CLASSIFICATION_WARNING, CandidateTrainRange, ClipDetection, ClipWindow, DetectionBout
+
+
+def build_review_report(
+    *,
+    audio_path: Path,
+    json_path: Path,
+    payload: dict[str, object],
+    sample_local_time: str,
+    window: ClipWindow,
+    selected_bout: DetectionBout | None,
+    expanded_train: CandidateTrainRange | None,
+    sample_rate_hz: int,
+    audible_sample_rate_hz: int,
+    slowdown_factor: int,
+    write_mp3: bool,
+    mp3_bitrate: str,
+    recording_duration_s: float,
+    padding_before_s: float,
+    padding_after_s: float,
+    bout_gap_s: float,
+    clip_start_s: float | None,
+    detections_for_clip: list[ClipDetection],
+    clip_mp3_path: Path | None,
+    audible_mp3_path: Path | None,
+) -> dict[str, object]:
+    return {
+        "audio_file": str(audio_path),
+        "json_file": str(json_path),
+        "sample_local_time": sample_local_time,
+        "classification_warning": CLASSIFICATION_WARNING,
+        "selection_mode": "explicit_window" if clip_start_s is not None else "primary_detection_bout",
+        "bout_gap_s": bout_gap_s,
+        "leading_context_s": padding_before_s,
+        "trailing_context_s": padding_after_s,
+        "clip_start_s": window.start_time_s,
+        "clip_end_s": window.end_time_s,
+        "clip_duration_s": window.duration_s,
+        "sample_rate_hz": int(sample_rate_hz),
+        "audible_sample_rate_hz": audible_sample_rate_hz,
+        "slowdown_factor": slowdown_factor,
+        "mp3_enabled": write_mp3,
+        "mp3_bitrate": mp3_bitrate if write_mp3 else None,
+        "recording_duration_s": recording_duration_s,
+        "raw_model_class_label": payload.get("class_name"),
+        "selected_bout_start_s": selected_bout.start_time_s if selected_bout else None,
+        "selected_bout_end_s": selected_bout.end_time_s if selected_bout else None,
+        "selected_bout_duration_s": selected_bout.duration_s if selected_bout else None,
+        "selected_bout_detection_count": selected_bout.detection_count if selected_bout else 0,
+        "selected_bout_low_freq_hz": selected_bout.min_low_freq_hz if selected_bout else None,
+        "selected_bout_high_freq_hz": selected_bout.max_high_freq_hz if selected_bout else None,
+        "expanded_train_start_s": expanded_train.start_time_s + window.start_time_s if expanded_train else None,
+        "expanded_train_end_s": expanded_train.end_time_s + window.start_time_s if expanded_train else None,
+        "expanded_train_duration_s": expanded_train.duration_s if expanded_train else None,
+        "expanded_train_peak_count": len(expanded_train.peak_times_s) if expanded_train else 0,
+        "expanded_train_segment_count": expanded_train.segment_count if expanded_train else 0,
+        "expanded_train_segments": [asdict(segment) for segment in expanded_train.segments] if expanded_train else [],
+        "clip_mp3": str(clip_mp3_path) if clip_mp3_path else None,
+        "audible_mp3": str(audible_mp3_path) if audible_mp3_path else None,
+        "clip_truncated_at_file_start": window.start_time_s <= 0.0,
+        "clip_truncated_at_file_end": window.end_time_s >= recording_duration_s,
+        "detections": [asdict(item) for item in detections_for_clip],
+    }

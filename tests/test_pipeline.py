@@ -34,11 +34,11 @@ class NightPipelineTests(unittest.TestCase):
             with (
                 patch("batpipe.pipeline.run_detection_plan") as mock_run_detection,
                 patch("batpipe.pipeline.summarize_detection_directory") as mock_summarize,
-                patch("batpipe.pipeline.export_validation_batch") as mock_export_validation,
+                patch("batpipe.pipeline.export_review_batch") as mock_export_review,
                 patch("batpipe.pipeline.build_review_site") as mock_build_review_site,
             ):
                 mock_summarize.return_value = {"nightly_summary_csv": summary / "nightly_summary.csv"}
-                mock_export_validation.return_value = {
+                mock_export_review.return_value = {
                     "exported_count": 1,
                     "summary_json": str(review / "20260518" / "batch_summary.json"),
                     "night_output_dir": str(review / "20260518"),
@@ -51,7 +51,7 @@ class NightPipelineTests(unittest.TestCase):
             self.assertTrue((detections / "run_manifest.json").exists())
             mock_run_detection.assert_called_once()
             mock_summarize.assert_called_once_with(detections.resolve(), summary.resolve())
-            mock_export_validation.assert_called_once()
+            mock_export_review.assert_called_once()
             mock_build_review_site.assert_called_once()
             self.assertEqual(result["selected_audio_files"], 1)
             self.assertIn("review_outputs", result)
@@ -74,13 +74,13 @@ class NightPipelineTests(unittest.TestCase):
             with (
                 patch("batpipe.pipeline.run_detection_plan") as mock_run_detection,
                 patch("batpipe.pipeline.summarize_detection_directory") as mock_summarize,
-                patch("batpipe.pipeline.export_validation_batch") as mock_export_validation,
+                patch("batpipe.pipeline.export_review_batch") as mock_export_review,
             ):
                 result = run_night_pipeline(config, dry_run=True)
 
             mock_run_detection.assert_called_once()
             mock_summarize.assert_not_called()
-            mock_export_validation.assert_not_called()
+            mock_export_review.assert_not_called()
             self.assertTrue(result["dry_run"])
 
     def test_run_night_pipeline_reports_unwritable_detection_output_dir(self) -> None:

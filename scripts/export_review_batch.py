@@ -11,7 +11,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from batpipe.batch_validate import export_validation_batch
+from batpipe.review import export_review_batch
 
 
 def build_parser() -> ArgumentParser:
@@ -38,7 +38,7 @@ def build_parser() -> ArgumentParser:
 
 def main() -> int:
     args = build_parser().parse_args()
-    result = export_validation_batch(
+    result = export_review_batch(
         audio_dir=Path(args.audio_dir).expanduser().resolve(),
         json_dir=Path(args.json_dir).expanduser().resolve(),
         output_dir=Path(args.output_dir).expanduser().resolve(),
