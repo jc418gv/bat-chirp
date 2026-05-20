@@ -109,27 +109,30 @@ def _render_cards_html(entries: list[dict[str, object]], summary_dir: Path) -> s
         audible_wav_href = _relative_link(summary_dir, str(entry["audible_wav"]))
         report_href = _relative_link(summary_dir, str(entry["report_json"]))
         probability = entry["max_det_prob"]
-        probability_text = f"{probability:.3f}" if isinstance(probability, float) else "n/a"
+        probability_text = f"p={probability:.3f}" if isinstance(probability, float) else "p=n/a"
+        recording_start = entry["recording_start"]
+        time_label = recording_start.strftime("%H:%M:%S") if hasattr(recording_start, "strftime") else str(recording_start)
+        det_count = escape(str(entry["detection_count"]))
+        clip_det = escape(str(entry["detections_in_clip"]))
+        segments = escape(str(entry["expanded_train_segment_count"]))
+        clip_range = f"{entry['clip_start_s']}s – {entry['clip_end_s']}s"
         cards.append(
-            f"""
-            <article class=\"card\">
-              <a class=\"image-link\" href=\"{escape(spectrogram_href)}\"><img class=\"spectrogram\" src=\"{escape(spectrogram_href)}\" alt=\"Spectrogram for {escape(str(entry['audio_name']))}\" loading=\"lazy\"></a>
-              <div class=\"card-body\">
-                <h3>{escape(str(entry['audio_name']))}</h3>
-                <p class=\"meta\">Rank {escape(str(entry['rank']))} · {escape(str(entry['recording_start'].strftime('%Y-%m-%d %H:%M:%S')))} · sample {escape(str(entry['sample_local_time']))}</p>
-                <p class=\"meta\">Detections {escape(str(entry['detection_count']))} · clip detections {escape(str(entry['detections_in_clip']))} · max det prob {escape(probability_text)}</p>
-                <p class=\"meta\">Clip {escape(str(entry['clip_start_s']))}s to {escape(str(entry['clip_end_s']))}s · train segments {escape(str(entry['expanded_train_segment_count']))}</p>
-                <div class=\"links\">
-                  <a href=\"{escape(clip_wav_href)}\">clip wav</a>
-                  <a href=\"{escape(clip_mp3_href)}\">clip mp3</a>
-                  <a href=\"{escape(audible_wav_href)}\">x8 wav</a>
-                  <a href=\"{escape(audible_mp3_href)}\">x8 mp3</a>
-                  <a href=\"{escape(spectrogram_href)}\">spectrogram</a>
-                  <a href=\"{escape(report_href)}\">report</a>
-                </div>
-              </div>
-            </article>
-            """.strip()
+            f"""<article class="card">
+  <a class="image-link" href="{escape(spectrogram_href)}"><img class="spectrogram" src="{escape(spectrogram_href)}" alt="Spectrogram {escape(time_label)}" loading="lazy"></a>
+  <div class="card-body">
+    <p class="card-time">{escape(time_label)}<span class="card-rank">rank {escape(str(entry['rank']))}</span></p>
+    <p class="card-filename">{escape(str(entry['audio_name']))}</p>
+    <p class="card-stats">{det_count} detections · {escape(probability_text)} · {segments} segment{'s' if str(entry['expanded_train_segment_count']) != '1' else ''} · {escape(clip_range)}</p>
+    <div class="links">
+      <a class="pill primary" href="{escape(spectrogram_href)}">spectrogram</a>
+      <a class="pill" href="{escape(audible_mp3_href)}">x8 mp3</a>
+      <a class="pill" href="{escape(audible_wav_href)}">x8 wav</a>
+      <a class="pill" href="{escape(clip_mp3_href)}">clip mp3</a>
+      <a class="pill" href="{escape(clip_wav_href)}">clip wav</a>
+      <a class="pill" href="{escape(report_href)}">json</a>
+    </div>
+  </div>
+</article>"""
         )
     return "\n".join(cards)
 
