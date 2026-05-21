@@ -130,6 +130,7 @@ def extract_activity_extent_with_config(
         anchor_end_s=anchor_end_s,
         anchor_level_db=signal_evidence.anchor_level_db,
         time_step_s=signal_evidence.time_step_s,
+        clip_duration_s=float(signal_evidence.times_s[-1] + (signal_evidence.time_step_s / 2.0)),
     )
 
 

@@ -92,6 +92,19 @@ def render_review_spectrogram(
             activity_end_s = min(clip_duration_s, segment.end_time_s)
             range_axis.hlines(0.25, activity_start_s, activity_end_s, color="#f4d35e", linewidth=2.2, linestyles="--")
             range_axis.vlines([activity_start_s, activity_end_s], 0.18, 0.32, color="#f4d35e", linewidth=1.6, linestyles="--")
+        activity_peak_times_s = [
+            max(0.0, min(clip_duration_s, peak.time_s))
+            for peak in activity_extent.peak_evidence
+            if peak.included_in_activity
+        ]
+        if not activity_peak_times_s:
+            activity_peak_times_s = [
+                max(0.0, min(clip_duration_s, peak_time_s))
+                for peak_time_s in activity_extent.peak_times_s
+            ]
+        if activity_peak_times_s:
+            range_axis.vlines(activity_peak_times_s, 0.20, 0.30, color="#9c6644", linewidth=0.9, alpha=0.95)
+            range_axis.scatter(activity_peak_times_s, [0.25] * len(activity_peak_times_s), s=10, color="#9c6644", zorder=3)
 
     try:
         recording_start_dt = parse_audiomoth_timestamp(title)
@@ -139,6 +152,16 @@ def render_review_spectrogram(
             f"  ({len(activity_extent.peak_times_s)} peaks, {activity_extent.segment_count}"
             f" segment{'s' if activity_extent.segment_count != 1 else ''})"
         )
+        activity_peak_starts = [
+            _wc(window.start_time_s + peak.time_s)
+            for peak in activity_extent.peak_evidence
+            if peak.included_in_activity
+        ]
+        if activity_peak_starts:
+            clipped_activity_peak_starts = activity_peak_starts[:6]
+            if len(activity_peak_starts) > 6:
+                clipped_activity_peak_starts.append(f"+{len(activity_peak_starts) - 6} more")
+            footer_lines.append(f"Rule matches: {', '.join(clipped_activity_peak_starts)}")
         if activity_extent.left_boundary or activity_extent.right_boundary:
             left_reason = activity_extent.left_boundary.stop_reason if activity_extent.left_boundary else "unknown"
             right_reason = activity_extent.right_boundary.stop_reason if activity_extent.right_boundary else "unknown"

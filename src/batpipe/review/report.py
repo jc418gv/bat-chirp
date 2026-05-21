@@ -55,6 +55,16 @@ def build_review_report(
         float(max(0.0, item.end_time_s - window.start_time_s))
         for item in detections_for_clip
     ]
+    activity_peak_times_clip_s = [
+        float(item.time_s)
+        for item in (activity_extent.peak_evidence if activity_extent else [])
+        if item.included_in_activity
+    ]
+    activity_peak_times_recording_s = [
+        float(window.start_time_s + item.time_s)
+        for item in (activity_extent.peak_evidence if activity_extent else [])
+        if item.included_in_activity
+    ]
 
     return {
         "audio_file": str(audio_path),
@@ -85,6 +95,8 @@ def build_review_report(
         "detection_end_times_recording_s": detection_end_times_recording_s,
         "detection_start_times_clip_s": detection_start_times_clip_s,
         "detection_end_times_clip_s": detection_end_times_clip_s,
+        "activity_peak_times_recording_s": activity_peak_times_recording_s,
+        "activity_peak_times_clip_s": activity_peak_times_clip_s,
         "activity_start_s": activity_extent.start_time_s + window.start_time_s if activity_extent else None,
         "activity_end_s": activity_extent.end_time_s + window.start_time_s if activity_extent else None,
         "activity_duration_s": activity_extent.duration_s if activity_extent else None,

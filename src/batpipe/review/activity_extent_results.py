@@ -129,6 +129,7 @@ def build_extent_from_segments(
     anchor_end_s: float,
     anchor_level_db: float,
     time_step_s: float,
+    clip_duration_s: float | None = None,
 ) -> ActivityExtent:
     start_time_s = min(segment.start_time_s for segment in segments)
     end_time_s = max(segment.end_time_s for segment in segments)
@@ -142,12 +143,20 @@ def build_extent_from_segments(
         anchor_level_db=anchor_level_db,
     )
     included_peak_count = sum(1 for item in peak_evidence if item.included_in_activity)
-    active_start_center_s = start_time_s + (time_step_s / 2.0)
-    active_end_center_s = end_time_s - (time_step_s / 2.0)
+    half_step_s = time_step_s / 2.0
+    active_start_center_s = start_time_s + half_step_s
+    active_end_center_s = end_time_s - half_step_s
     left_extended = active_start_center_s < anchor_start_s
     right_extended = active_end_center_s > anchor_end_s
     left_stop_reason = "activity_dropoff" if left_extended else "anchor_edge"
     right_stop_reason = "activity_dropoff" if right_extended else "anchor_edge"
+
+    if clip_duration_s is not None:
+        if start_time_s <= half_step_s:
+            left_stop_reason = "clip_start"
+        if end_time_s >= max(0.0, clip_duration_s - half_step_s):
+            right_stop_reason = "clip_end"
+
     return ActivityExtent(
         start_time_s=start_time_s,
         end_time_s=end_time_s,
