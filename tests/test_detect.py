@@ -1,8 +1,9 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
-from batpipe.detect import build_detection_plan
+from batpipe.detect import build_detection_plan, resolve_batdetect2_cuda_visible_devices, run_detection_plan
 
 
 class DetectPlanTests(unittest.TestCase):
@@ -82,6 +83,61 @@ class DetectPlanTests(unittest.TestCase):
             self.assertIn("20260519_000500T.WAV", contents)
             self.assertNotIn("20260518_175900T.WAV", contents)
             self.assertNotIn("20260519_120100T.WAV", contents)
+
+    def test_build_detection_plan_defaults_to_single_gpu_for_routine_runs(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            input_dir = root / "input"
+            output_dir = root / "output"
+            input_dir.mkdir()
+            output_dir.mkdir()
+            (input_dir / "20260518_020000T.WAV").write_bytes(b"wav")
+
+            with patch.dict("os.environ", {}, clear=True):
+                plan = build_detection_plan(
+                    input_dir=input_dir,
+                    output_dir=output_dir,
+                    batdetect2_bin="batdetect2",
+                    model=None,
+                    detection_threshold=0.4,
+                    limit=None,
+                    name_filters=[],
+                    extra_args=[],
+                )
+
+            self.assertEqual(plan.cuda_visible_devices, "0")
+
+    def test_resolve_batdetect2_cuda_visible_devices_respects_existing_cuda_visible_devices(self) -> None:
+        with patch.dict("os.environ", {"CUDA_VISIBLE_DEVICES": "1"}, clear=True):
+            self.assertEqual(resolve_batdetect2_cuda_visible_devices(), "1")
+
+    def test_run_detection_plan_forwards_stable_cuda_visible_devices(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            input_dir = root / "input"
+            output_dir = root / "output"
+            input_dir.mkdir()
+            output_dir.mkdir()
+            (input_dir / "20260518_020000T.WAV").write_bytes(b"wav")
+
+            with patch.dict("os.environ", {}, clear=True):
+                plan = build_detection_plan(
+                    input_dir=input_dir,
+                    output_dir=output_dir,
+                    batdetect2_bin="batdetect2",
+                    model=None,
+                    detection_threshold=0.4,
+                    limit=None,
+                    name_filters=[],
+                    extra_args=[],
+                )
+
+            with patch("batpipe.detect.subprocess.run") as mock_run:
+                run_detection_plan(plan)
+
+            mock_run.assert_called_once()
+            forwarded_env = mock_run.call_args.kwargs["env"]
+            self.assertEqual(forwarded_env["CUDA_VISIBLE_DEVICES"], "0")
 
 
 if __name__ == "__main__":

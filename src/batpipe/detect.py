@@ -4,16 +4,18 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
+import os
 from pathlib import Path
 import json
 import shlex
 import subprocess
-from typing import Sequence
+from typing import Mapping, Sequence
 
 from batpipe.audiomoth import is_in_night_window
 
 
 AUDIO_SUFFIXES = {".wav", ".wave"}
+DEFAULT_BATDETECT2_CUDA_VISIBLE_DEVICES = "0"
 
 
 @dataclass(slots=True)
@@ -28,7 +30,23 @@ class DetectionPlan:
     selected_files_manifest: str | None
     detection_threshold: float | None
     model: str | None
+    cuda_visible_devices: str | None
     created_at_utc: str
+
+
+def resolve_batdetect2_cuda_visible_devices(env: Mapping[str, str] | None = None) -> str | None:
+    active_env = env or os.environ
+    explicit_cuda_visible_devices = active_env.get("CUDA_VISIBLE_DEVICES")
+    if explicit_cuda_visible_devices not in (None, ""):
+        return explicit_cuda_visible_devices
+
+    requested_override = active_env.get(
+        "BATPIPE_BATDETECT2_CUDA_VISIBLE_DEVICES",
+        DEFAULT_BATDETECT2_CUDA_VISIBLE_DEVICES,
+    )
+    if requested_override in (None, "", "all", "ALL", "*"):
+        return None
+    return requested_override
 
 
 def discover_audio_files(input_dir: Path, name_filters: Sequence[str] = ()) -> list[Path]:
@@ -130,6 +148,7 @@ def build_detection_plan(
         selected_files_manifest=(str(selected_files_manifest) if selected_files_manifest else None),
         detection_threshold=detection_threshold,
         model=model,
+        cuda_visible_devices=resolve_batdetect2_cuda_visible_devices(),
         created_at_utc=datetime.now(timezone.utc).isoformat(),
     )
 
@@ -146,4 +165,7 @@ def command_as_shell_string(command: Sequence[str]) -> str:
 def run_detection_plan(plan: DetectionPlan, dry_run: bool = False) -> subprocess.CompletedProcess[str] | None:
     if dry_run:
         return None
-    return subprocess.run(plan.batdetect2_command, check=True, text=True)
+    child_env = dict(os.environ)
+    if plan.cuda_visible_devices is not None:
+        child_env["CUDA_VISIBLE_DEVICES"] = plan.cuda_visible_devices
+    return subprocess.run(plan.batdetect2_command, check=True, text=True, env=child_env)
