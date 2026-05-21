@@ -7,7 +7,9 @@ from batpipe.review.model_annotations import AuditAnnotation
 
 BoundaryStopReason = Literal[
     "anchor_edge",
+    "activity_onset",
     "activity_dropoff",
+    "cadence_gap",
     "clip_start",
     "clip_end",
     "single_frame_activity",

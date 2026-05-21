@@ -130,7 +130,7 @@ class ReviewAcousticTests(unittest.TestCase):
         self.assertAlmostEqual(estimated.end_time_s if estimated else -1.0, 0.45)
         self.assertEqual(len(estimated.peak_times_s if estimated else []), 2)
         self.assertEqual(estimated.segment_count if estimated else -1, 1)
-        self.assertEqual(estimated.left_boundary.stop_reason if estimated and estimated.left_boundary else "", "activity_dropoff")
+        self.assertEqual(estimated.left_boundary.stop_reason if estimated and estimated.left_boundary else "", "clip_start")
         self.assertEqual(estimated.right_boundary.stop_reason if estimated and estimated.right_boundary else "", "anchor_edge")
 
     def test_extract_activity_extent_keeps_multiple_segments_near_anchor(self) -> None:
@@ -250,7 +250,7 @@ class ReviewAcousticTests(unittest.TestCase):
         self.assertAlmostEqual(estimated.end_time_s if estimated else -1.0, 0.65)
         self.assertEqual(estimated.segment_count if estimated else -1, 1)
         self.assertGreaterEqual(len(estimated.peak_evidence if estimated else []), 1)
-        self.assertEqual(estimated.left_boundary.stop_reason if estimated and estimated.left_boundary else "", "activity_dropoff")
+        self.assertEqual(estimated.left_boundary.stop_reason if estimated and estimated.left_boundary else "", "activity_onset")
         self.assertEqual(estimated.right_boundary.stop_reason if estimated and estimated.right_boundary else "", "activity_dropoff")
 
     def test_extract_activity_extent_extends_sustained_activity_when_concentration_is_high(self) -> None:
@@ -271,7 +271,7 @@ class ReviewAcousticTests(unittest.TestCase):
         self.assertAlmostEqual(estimated.start_time_s if estimated else -1.0, 0.15)
         self.assertAlmostEqual(estimated.end_time_s if estimated else -1.0, 0.65)
         self.assertEqual(estimated.segment_count if estimated else -1, 1)
-        self.assertEqual(estimated.left_boundary.stop_reason if estimated and estimated.left_boundary else "", "activity_dropoff")
+        self.assertEqual(estimated.left_boundary.stop_reason if estimated and estimated.left_boundary else "", "activity_onset")
         self.assertEqual(estimated.right_boundary.stop_reason if estimated and estimated.right_boundary else "", "activity_dropoff")
 
     def test_extract_activity_extent_does_not_extend_flat_noise_plateau(self) -> None:
@@ -410,6 +410,38 @@ class ReviewAcousticTests(unittest.TestCase):
         self.assertIsNotNone(estimated)
         self.assertEqual(estimated.left_boundary.stop_reason if estimated and estimated.left_boundary else "", "anchor_edge")
         self.assertEqual(estimated.right_boundary.stop_reason if estimated and estimated.right_boundary else "", "clip_end")
+
+    def test_extract_activity_extent_marks_clip_start_when_first_peak_implies_prior_chirp_before_clip(self) -> None:
+        times_s = np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5])
+        band_envelope_db = np.array([-40.0, -10.0, -40.0, -11.0, -40.0, -12.0])
+
+        estimated = extract_activity_extent(
+            times_s=times_s,
+            band_envelope_db=band_envelope_db,
+            anchor_start_s=0.28,
+            anchor_end_s=0.32,
+            max_peak_gap_s=0.25,
+            max_activity_extension_s=0.25,
+        )
+
+        self.assertIsNotNone(estimated)
+        self.assertEqual(estimated.left_boundary.stop_reason if estimated and estimated.left_boundary else "", "clip_start")
+
+    def test_extract_activity_extent_marks_left_cadence_gap_when_train_starts_mid_clip(self) -> None:
+        times_s = np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
+        band_envelope_db = np.array([-40.0, -40.0, -40.0, -40.0, -12.0, -40.0, -11.5, -40.0, -11.0, -40.0, -10.5])
+
+        estimated = extract_activity_extent(
+            times_s=times_s,
+            band_envelope_db=band_envelope_db,
+            anchor_start_s=0.88,
+            anchor_end_s=0.92,
+            max_peak_gap_s=0.25,
+            max_activity_extension_s=0.6,
+        )
+
+        self.assertIsNotNone(estimated)
+        self.assertEqual(estimated.left_boundary.stop_reason if estimated and estimated.left_boundary else "", "cadence_gap")
 
     def test_extract_activity_extent_marks_clip_end_when_file_truncates_expected_next_chirp(self) -> None:
         times_s = np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5])
