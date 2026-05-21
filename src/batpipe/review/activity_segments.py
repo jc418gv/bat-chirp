@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from batpipe.review.models import ActivityBoundaryDecision, ActivitySegment, PeakEvidence
+from batpipe.review.model_activity import ActivityBoundaryDecision, ActivitySegment, PeakEvidence
 
 
 def build_peak_segments(peak_times_s, half_bin_s: float, max_peak_gap_s: float) -> list[ActivitySegment]:

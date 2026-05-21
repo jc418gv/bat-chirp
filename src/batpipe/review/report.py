@@ -3,7 +3,9 @@ from __future__ import annotations
 from dataclasses import asdict
 from pathlib import Path
 
-from batpipe.review.models import ActivityExtent, CLASSIFICATION_WARNING, ClipDetection, ClipWindow, DetectionBout
+from batpipe.review.model_activity import ActivityExtent
+from batpipe.review.model_detection import ClipDetection, ClipWindow, DetectionBout
+from batpipe.review.model_review import CLASSIFICATION_WARNING
 
 
 def build_review_report(
@@ -106,7 +108,9 @@ def build_review_report(
         "activity_min_concentration": min(activity_peak_concentrations) if activity_peak_concentrations else None,
         "anchor_mean_concentration": _mean(anchor_peak_concentrations),
         "activity_segments": [asdict(segment) for segment in activity_extent.segments] if activity_extent else [],
+        "activity_selected_segments": [asdict(segment) for segment in activity_extent.selected_segments] if activity_extent else [],
         "activity_peak_evidence": [asdict(item) for item in activity_extent.peak_evidence] if activity_extent else [],
+        "audit_annotations": [asdict(item) for item in activity_extent.audit_annotations] if activity_extent else [],
         "activity_left_boundary": asdict(activity_extent.left_boundary) if activity_extent and activity_extent.left_boundary else None,
         "activity_right_boundary": asdict(activity_extent.right_boundary) if activity_extent and activity_extent.right_boundary else None,
         "clip_mp3": str(clip_mp3_path) if clip_mp3_path else None,

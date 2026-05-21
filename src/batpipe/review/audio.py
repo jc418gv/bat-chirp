@@ -6,7 +6,7 @@ import json
 from batpipe.review.acoustic import extract_bat_activity
 from batpipe.review.clip import build_review_artifact_paths
 from batpipe.review.detection import choose_clip_window, detections_in_window, load_clip_detections
-from batpipe.review.models import ActivityExtractionConfig, ClipSelectionConfig, SpectrogramConfig
+from batpipe.review.model_review import ActivityExtractionConfig, ClipSelectionConfig, SpectrogramConfig
 from batpipe.review.report import build_review_report
 from batpipe.review.spectrogram import render_review_spectrogram
 

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from batpipe.review.activity_segments import build_boundary_decision, build_peak_evidence
-from batpipe.review.models import ActivityExtent, PeakEvidence
+from batpipe.review.model_activity import ActivityExtent, ActivitySegment, PeakEvidence
+from batpipe.review.model_annotations import AuditAnnotation
 
 
 def build_single_frame_extent(
@@ -130,6 +131,8 @@ def build_extent_from_segments(
     anchor_level_db: float,
     time_step_s: float,
     clip_duration_s: float | None = None,
+    selected_segments: list[ActivitySegment] | None = None,
+    audit_annotations: list[AuditAnnotation] | None = None,
 ) -> ActivityExtent:
     start_time_s = min(segment.start_time_s for segment in segments)
     end_time_s = max(segment.end_time_s for segment in segments)
@@ -167,6 +170,8 @@ def build_extent_from_segments(
         ],
         segments=segments,
         peak_evidence=peak_evidence,
+        selected_segments=list(selected_segments or segments),
+        audit_annotations=list(audit_annotations or []),
         left_boundary=build_boundary_decision(
             boundary="left",
             anchor_time_s=anchor_start_s,

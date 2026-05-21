@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from batpipe.review.models import ActivityExtractionConfig
+from batpipe.review.model_review import ActivityExtractionConfig
 
 
 @dataclass(slots=True)

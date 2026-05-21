@@ -6,7 +6,7 @@ import unittest
 
 import numpy as np
 
-from batpipe.review import ActivityExtent, ActivityExtractionConfig, ActivitySegment, ClipDetection, DetectionBout, ClipWindow, PeakEvidence, build_review_report, choose_clip_window, detections_in_window, extract_activity_extent, extract_activity_extent_with_config, format_sample_time_token, group_detection_bouts, render_review_spectrogram
+from batpipe.review import ActivityExtent, ActivityExtractionConfig, ActivitySegment, AuditAnnotation, ClipDetection, DetectionBout, ClipWindow, PeakEvidence, build_review_report, choose_clip_window, detections_in_window, extract_activity_extent, extract_activity_extent_with_config, format_sample_time_token, group_detection_bouts, render_review_spectrogram
 
 
 class ReviewAcousticTests(unittest.TestCase):
@@ -492,6 +492,58 @@ class ReviewAcousticTests(unittest.TestCase):
 
         self.assertEqual(report["activity_peak_times_clip_s"], [5.31, 5.45])
         self.assertEqual(report["activity_peak_times_recording_s"], [30.31, 30.45])
+
+    def test_build_review_report_includes_selected_segments_and_audit_annotations(self) -> None:
+        activity_extent = ActivityExtent(
+            start_time_s=5.0,
+            end_time_s=7.2,
+            peak_times_s=[5.1, 5.3, 6.8, 7.0],
+            segments=[ActivitySegment(start_time_s=5.0, end_time_s=7.2, peak_times_s=[5.1, 5.3, 6.8, 7.0])],
+            selected_segments=[
+                ActivitySegment(start_time_s=5.0, end_time_s=5.4, peak_times_s=[5.1, 5.3]),
+                ActivitySegment(start_time_s=6.7, end_time_s=7.2, peak_times_s=[6.8, 7.0]),
+            ],
+            peak_evidence=[],
+            audit_annotations=[
+                AuditAnnotation(
+                    category="detection_gap",
+                    start_time_s=5.4,
+                    end_time_s=6.7,
+                    source="activity_segment_selection",
+                    label="Detection gap",
+                    rationale="Merged across an internal lull.",
+                    related_peak_times_s=[5.3, 6.8],
+                )
+            ],
+        )
+
+        report = build_review_report(
+            audio_path=Path("recordings/20260518_004400T.WAV"),
+            json_path=Path("detections/20260518_004400T.WAV.json"),
+            payload={"class_name": "bat"},
+            sample_local_time="004408",
+            window=ClipWindow(start_time_s=8.0, end_time_s=18.0),
+            selected_bout=None,
+            activity_extent=activity_extent,
+            sample_rate_hz=256000,
+            audible_sample_rate_hz=32000,
+            slowdown_factor=8,
+            write_mp3=False,
+            mp3_bitrate="192k",
+            recording_duration_s=60.0,
+            padding_before_s=5.0,
+            padding_after_s=4.0,
+            bout_gap_s=0.5,
+            clip_start_s=None,
+            detections_for_clip=[],
+            clip_mp3_path=None,
+            audible_mp3_path=None,
+        )
+
+        self.assertEqual(len(report["activity_selected_segments"]), 2)
+        self.assertEqual(report["audit_annotations"][0]["category"], "detection_gap")
+        self.assertAlmostEqual(report["audit_annotations"][0]["start_time_s"], 5.4)
+        self.assertEqual(report["audit_annotations"][0]["related_peak_times_s"], [5.3, 6.8])
 
     def test_render_review_spectrogram_aligns_footer_axis_with_spectrogram_axis(self) -> None:
         captured_positions: dict[str, tuple[float, float, float, float] | tuple[float, float]] = {}

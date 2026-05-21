@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from batpipe.review.band_analysis import compute_spectrogram_db, estimate_band_envelope_db
+from batpipe.review.annotation_builders import build_detection_gap_annotations
 from batpipe.review.activity_extent_results import (
     build_disconnected_extent,
     build_empty_extent,
@@ -14,13 +15,9 @@ from batpipe.review.activity_segments import (
     select_anchor_connected_segments,
 )
 from batpipe.review.activity_signal import analyze_activity_signal
-from batpipe.review.models import (
-    ActivityExtent,
-    ActivityExtractionConfig,
-    ClipWindow,
-    DetectionBout,
-    SpectrogramConfig,
-)
+from batpipe.review.model_activity import ActivityExtent
+from batpipe.review.model_detection import ClipWindow, DetectionBout
+from batpipe.review.model_review import ActivityExtractionConfig, SpectrogramConfig
 
 
 def extract_activity_extent(
@@ -110,7 +107,9 @@ def extract_activity_extent_with_config(
         connection_gap_s=signal_evidence.connection_gap_s,
         adjacent_segment_merge_gap_s=config.adjacent_segment_merge_gap_s,
     )
-    segments = merge_activity_segments(segments)
+    selected_segments = list(segments)
+    audit_annotations = build_detection_gap_annotations(selected_segments)
+    segments = merge_activity_segments(selected_segments)
     if not segments:
         return build_disconnected_extent(
             anchor_start_s=anchor_start_s,
@@ -131,6 +130,8 @@ def extract_activity_extent_with_config(
         anchor_level_db=signal_evidence.anchor_level_db,
         time_step_s=signal_evidence.time_step_s,
         clip_duration_s=float(signal_evidence.times_s[-1] + (signal_evidence.time_step_s / 2.0)),
+        selected_segments=selected_segments,
+        audit_annotations=audit_annotations,
     )
 
 

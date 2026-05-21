@@ -3,7 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from batpipe.review.models import DetectionBout, SpectrogramConfig
+from batpipe.review.model_detection import DetectionBout
+from batpipe.review.model_review import SpectrogramConfig
 
 
 @dataclass(slots=True)
