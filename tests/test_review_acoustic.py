@@ -6,6 +6,7 @@ import unittest
 
 import numpy as np
 
+from batpipe.review.annotation_builders import build_detection_gap_annotations
 from batpipe.review import ActivityExtent, ActivityExtractionConfig, ActivitySegment, AuditAnnotation, ClipDetection, DetectionBout, ClipWindow, PeakEvidence, build_review_report, choose_clip_window, detections_in_window, extract_activity_extent, extract_activity_extent_with_config, format_sample_time_token, group_detection_bouts, render_review_spectrogram
 
 
@@ -351,6 +352,30 @@ class ReviewAcousticTests(unittest.TestCase):
         self.assertAlmostEqual(estimated.start_time_s if estimated else -1.0, 0.85)
         self.assertAlmostEqual(estimated.end_time_s if estimated else -1.0, 2.55)
         self.assertEqual(len(estimated.peak_times_s if estimated else []), 2)
+
+    def test_build_detection_gap_annotations_marks_long_lull_larger_than_local_cadence(self) -> None:
+        annotations = build_detection_gap_annotations(
+            [
+                ActivitySegment(start_time_s=0.0, end_time_s=0.35, peak_times_s=[0.08, 0.18, 0.28]),
+                ActivitySegment(start_time_s=1.45, end_time_s=1.8, peak_times_s=[1.52, 1.62, 1.72]),
+            ]
+        )
+
+        self.assertEqual(len(annotations), 1)
+        self.assertEqual(annotations[0].category, "detection_gap")
+        self.assertAlmostEqual(annotations[0].start_time_s, 0.35)
+        self.assertAlmostEqual(annotations[0].end_time_s, 1.45)
+        self.assertEqual(annotations[0].related_peak_times_s, [0.28, 1.52])
+
+    def test_build_detection_gap_annotations_ignores_long_lull_when_local_cadence_is_sparse(self) -> None:
+        annotations = build_detection_gap_annotations(
+            [
+                ActivitySegment(start_time_s=0.0, end_time_s=0.9, peak_times_s=[0.08, 0.45, 0.82]),
+                ActivitySegment(start_time_s=1.8, end_time_s=2.7, peak_times_s=[1.88, 2.25, 2.62]),
+            ],
+        )
+
+        self.assertEqual(annotations, [])
 
     def test_extract_activity_extent_marks_clip_end_when_activity_reaches_clip_boundary(self) -> None:
         times_s = np.array([0.0, 0.1, 0.2, 0.3, 0.4])

@@ -22,6 +22,8 @@ class ActivityExtractionConfig:
     max_peak_gap_s: float = 0.25
     max_activity_extension_s: float = 1.0
     adjacent_segment_merge_gap_s: float = 2.0
+    detection_gap_min_gap_s: float = 0.8
+    detection_gap_cadence_multiplier: float = 3.0
     floor_percentile: float = 35.0
     activity_threshold_ratio: float = 0.16
     activity_modulation_ratio: float = 0.05

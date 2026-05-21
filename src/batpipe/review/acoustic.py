@@ -108,7 +108,11 @@ def extract_activity_extent_with_config(
         adjacent_segment_merge_gap_s=config.adjacent_segment_merge_gap_s,
     )
     selected_segments = list(segments)
-    audit_annotations = build_detection_gap_annotations(selected_segments)
+    audit_annotations = build_detection_gap_annotations(
+        selected_segments,
+        min_gap_s=config.detection_gap_min_gap_s,
+        cadence_multiplier=config.detection_gap_cadence_multiplier,
+    )
     segments = merge_activity_segments(selected_segments)
     if not segments:
         return build_disconnected_extent(
