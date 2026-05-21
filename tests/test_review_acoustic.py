@@ -411,6 +411,38 @@ class ReviewAcousticTests(unittest.TestCase):
         self.assertEqual(estimated.left_boundary.stop_reason if estimated and estimated.left_boundary else "", "anchor_edge")
         self.assertEqual(estimated.right_boundary.stop_reason if estimated and estimated.right_boundary else "", "clip_end")
 
+    def test_extract_activity_extent_marks_clip_end_when_file_truncates_expected_next_chirp(self) -> None:
+        times_s = np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5])
+        band_envelope_db = np.array([-40.0, -40.0, -12.0, -40.0, -11.0, -40.0])
+
+        estimated = extract_activity_extent(
+            times_s=times_s,
+            band_envelope_db=band_envelope_db,
+            anchor_start_s=0.18,
+            anchor_end_s=0.22,
+            max_peak_gap_s=0.25,
+            max_activity_extension_s=0.25,
+        )
+
+        self.assertIsNotNone(estimated)
+        self.assertEqual(estimated.right_boundary.stop_reason if estimated and estimated.right_boundary else "", "clip_end")
+
+    def test_extract_activity_extent_keeps_activity_dropoff_when_clip_end_is_beyond_expected_next_chirp(self) -> None:
+        times_s = np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7])
+        band_envelope_db = np.array([-40.0, -40.0, -12.0, -40.0, -11.0, -40.0, -40.0, -40.0])
+
+        estimated = extract_activity_extent(
+            times_s=times_s,
+            band_envelope_db=band_envelope_db,
+            anchor_start_s=0.18,
+            anchor_end_s=0.22,
+            max_peak_gap_s=0.25,
+            max_activity_extension_s=0.25,
+        )
+
+        self.assertIsNotNone(estimated)
+        self.assertEqual(estimated.right_boundary.stop_reason if estimated and estimated.right_boundary else "", "activity_dropoff")
+
     def test_build_review_report_summarizes_peak_concentration(self) -> None:
         activity_extent = ActivityExtent(
             start_time_s=0.3,
