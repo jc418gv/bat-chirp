@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-
 CLASSIFICATION_WARNING = (
     "BatDetect2 class labels in this workflow are raw model outputs and not reliable classifications."
 )

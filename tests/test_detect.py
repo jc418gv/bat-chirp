@@ -1,6 +1,6 @@
+import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-import unittest
 from unittest.mock import patch
 
 from batpipe.detect import build_detection_plan, resolve_batdetect2_cuda_visible_devices, run_detection_plan

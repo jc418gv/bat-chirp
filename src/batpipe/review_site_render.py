@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import os
 from html import escape
 from pathlib import Path
-import os
 
 
 def _relative_link(from_dir: Path, target_path: str | Path | None) -> str:

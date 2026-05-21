@@ -1,9 +1,8 @@
 from __future__ import annotations
 
+import sys
 from argparse import ArgumentParser
 from pathlib import Path
-import sys
-
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"

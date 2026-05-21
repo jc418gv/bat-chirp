@@ -5,7 +5,6 @@ from typing import Literal
 
 from batpipe.review.model_annotations import AuditAnnotation
 
-
 BoundaryStopReason = Literal[
     "anchor_edge",
     "activity_dropoff",

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from batpipe.review.band_analysis import compute_spectrogram_db, estimate_band_envelope_db
-from batpipe.review.annotation_builders import build_detection_gap_annotations
 from batpipe.review.activity_extent_results import (
     build_disconnected_extent,
     build_empty_extent,
@@ -15,6 +13,8 @@ from batpipe.review.activity_segments import (
     select_anchor_connected_segments,
 )
 from batpipe.review.activity_signal import analyze_activity_signal
+from batpipe.review.annotation_builders import build_detection_gap_annotations
+from batpipe.review.band_analysis import compute_spectrogram_db, estimate_band_envelope_db
 from batpipe.review.model_activity import ActivityExtent
 from batpipe.review.model_detection import ClipWindow, DetectionBout
 from batpipe.review.model_review import ActivityExtractionConfig, SpectrogramConfig

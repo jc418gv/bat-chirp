@@ -43,7 +43,7 @@ def render_review_spectrogram(
         sharex=True,
         gridspec_kw={"height_ratios": [12, 1.8], "hspace": 0.08},
     )
-    mesh = axis.pcolormesh(
+    axis.pcolormesh(
         times_s,
         frequencies_hz[frequency_mask] / 1000.0,
         spectrum_db[frequency_mask],

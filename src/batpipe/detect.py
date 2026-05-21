@@ -2,17 +2,16 @@ from __future__ import annotations
 
 """Local orchestration for an external BatDetect2 CLI installation."""
 
-from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
-import os
-from pathlib import Path
 import json
+import os
 import shlex
 import subprocess
+from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Mapping, Sequence
 
 from batpipe.audiomoth import is_in_night_window
-
 
 AUDIO_SUFFIXES = {".wav", ".wave"}
 DEFAULT_BATDETECT2_CUDA_VISIBLE_DEVICES = "0"

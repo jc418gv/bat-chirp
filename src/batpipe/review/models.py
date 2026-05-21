@@ -10,8 +10,8 @@ from batpipe.review.model_activity import (
 from batpipe.review.model_annotations import AnnotationCategory, AuditAnnotation
 from batpipe.review.model_detection import ClipDetection, ClipWindow, DetectionBout
 from batpipe.review.model_review import (
-    ActivityExtractionConfig,
     CLASSIFICATION_WARNING,
+    ActivityExtractionConfig,
     ClipSelectionConfig,
     ReviewBatchJob,
     SpectrogramConfig,

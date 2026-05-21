@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import csv
+import json
 from collections.abc import Callable
 from pathlib import Path
-import json
 
 from batpipe.audiomoth import is_in_night_window, parse_audiomoth_timestamp
 from batpipe.review.audio import export_review_clip
 from batpipe.review.model_review import ReviewBatchJob
-
 
 ProgressCallback = Callable[[str, dict[str, object]], None]
 

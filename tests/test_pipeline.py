@@ -1,11 +1,11 @@
-from pathlib import Path
-from tempfile import TemporaryDirectory
 import json
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from batpipe.site_config import SiteConfig
 from batpipe.pipeline import run_night_pipeline
+from batpipe.site_config import SiteConfig
 
 
 class NightPipelineTests(unittest.TestCase):

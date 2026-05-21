@@ -1,13 +1,29 @@
+import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-import unittest
-
 import numpy as np
 
+from batpipe.review import (
+    ActivityExtent,
+    ActivityExtractionConfig,
+    ActivitySegment,
+    AuditAnnotation,
+    ClipDetection,
+    ClipWindow,
+    DetectionBout,
+    PeakEvidence,
+    build_review_report,
+    choose_clip_window,
+    detections_in_window,
+    extract_activity_extent,
+    extract_activity_extent_with_config,
+    format_sample_time_token,
+    group_detection_bouts,
+    render_review_spectrogram,
+)
 from batpipe.review.annotation_builders import build_detection_gap_annotations
-from batpipe.review import ActivityExtent, ActivityExtractionConfig, ActivitySegment, AuditAnnotation, ClipDetection, DetectionBout, ClipWindow, PeakEvidence, build_review_report, choose_clip_window, detections_in_window, extract_activity_extent, extract_activity_extent_with_config, format_sample_time_token, group_detection_bouts, render_review_spectrogram
 
 
 class ReviewAcousticTests(unittest.TestCase):

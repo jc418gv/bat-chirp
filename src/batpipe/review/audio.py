@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
 import json
+from pathlib import Path
 
 from batpipe.review.acoustic import extract_bat_activity
 from batpipe.review.clip import build_review_artifact_paths
@@ -13,6 +13,7 @@ from batpipe.review.spectrogram import render_review_spectrogram
 
 def _read_wav_mono(audio_path: Path):
     import warnings
+
     from scipy.io import wavfile
 
     with warnings.catch_warnings():

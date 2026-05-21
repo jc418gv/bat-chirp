@@ -10,7 +10,6 @@ from batpipe.review import export_review_batch
 from batpipe.review_site import build_review_site
 from batpipe.site_config import SiteConfig, resolve_site_path
 
-
 ProgressCallback = Callable[[str, dict[str, object]], None]
 
 
