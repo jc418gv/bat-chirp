@@ -1,0 +1,27 @@
+[
+  {
+    "module": "activity_segment_builders",
+    "responsibility": "Build raw activity segments from peaks or active-mask spans.",
+    "exports": [
+      "build_peak_segments",
+      "build_mask_activity_segments"
+    ]
+  },
+  {
+    "module": "activity_segment_selection",
+    "responsibility": "Select anchor-connected segments and merge them into review events.",
+    "exports": [
+      "select_anchor_connected_segments",
+      "merge_activity_segments",
+      "segment_gap_s"
+    ]
+  },
+  {
+    "module": "activity_segment_evidence",
+    "responsibility": "Build peak evidence and boundary decisions from selected activity segments.",
+    "exports": [
+      "build_peak_evidence",
+      "build_boundary_decision"
+    ]
+  }
+]
