@@ -13,12 +13,13 @@ class ReviewSiteTests(unittest.TestCase):
             item_dir = night_dir / "20260518_020000T"
             item_dir.mkdir(parents=True)
             spectrogram = item_dir / "spectrogram_020000.png"
+            noise_reduced_spectrogram = item_dir / "spectrogram_noise_reduced_020000.png"
             report = item_dir / "detections_020000.json"
             clip_wav = item_dir / "clip_original_020000.wav"
             clip_mp3 = item_dir / "clip_original_020000.mp3"
             audible_wav = item_dir / "clip_audible_x8_020000.wav"
             audible_mp3 = item_dir / "clip_audible_x8_020000.mp3"
-            for path in [spectrogram, report, clip_wav, clip_mp3, audible_wav, audible_mp3]:
+            for path in [spectrogram, noise_reduced_spectrogram, report, clip_wav, clip_mp3, audible_wav, audible_mp3]:
                 path.write_text("x", encoding="utf-8")
 
             result = build_review_site(
@@ -28,6 +29,7 @@ class ReviewSiteTests(unittest.TestCase):
                         "audio_file": str(root / "recordings" / "20260518_020000T.WAV"),
                         "sample_local_time": "020000",
                         "spectrogram_png": str(spectrogram),
+                        "noise_reduced_spectrogram_png": str(noise_reduced_spectrogram),
                         "report_json": str(report),
                         "clip_wav": str(clip_wav),
                         "clip_mp3": str(clip_mp3),
@@ -36,6 +38,7 @@ class ReviewSiteTests(unittest.TestCase):
                         "clip_start_s": 0.0,
                         "clip_end_s": 10.0,
                         "activity_segment_count": 1,
+                        "activity_peak_count": 14,
                         "detections_in_clip": 2,
                     }
                 ],
@@ -52,8 +55,11 @@ class ReviewSiteTests(unittest.TestCase):
             self.assertIn("Hour 2026-05-18 02:00", html)
             self.assertIn("hour-26051802.html", html)
             self.assertIn("spectrogram_020000.png", html)
+            self.assertIn("spectrogram_noise_reduced_020000.png", html)
             self.assertIn("clip_original_020000.mp3", html)
             self.assertIn("data-spectrogram-modal-trigger", html)
+            self.assertIn("14 activity peaks", html)
+            self.assertIn("noise reduced", html)
             self.assertIn("<audio controls preload=\"none\" src=\"20260518_020000T/clip_original_020000.mp3\"></audio>", html)
             self.assertIn("open full image", html)
             self.assertNotIn(">new tab<", html)

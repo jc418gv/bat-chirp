@@ -64,8 +64,8 @@ def _build_review_entries(
                 "audio_file": audio_file,
                 "audio_name": audio_name,
                 "recording_start": recording_start,
-            "recording_hour_key": recording_start.strftime("%y%m%d%H"),
-            "recording_hour_label": recording_start.strftime("%Y-%m-%d %H:00"),
+                "recording_hour_key": recording_start.strftime("%y%m%d%H"),
+                "recording_hour_label": recording_start.strftime("%Y-%m-%d %H:00"),
                 "sample_local_time": str(item.get("sample_local_time") or ""),
                 "rank": rank_value,
                 "detection_count": detection_count,
@@ -75,10 +75,12 @@ def _build_review_entries(
                 "audible_wav": str(item.get("audible_wav") or ""),
                 "audible_mp3": str(item.get("audible_mp3") or ""),
                 "spectrogram_png": str(item.get("spectrogram_png") or ""),
+                "noise_reduced_spectrogram_png": str(item.get("noise_reduced_spectrogram_png") or ""),
                 "report_json": str(item.get("report_json") or ""),
                 "clip_start_s": item.get("clip_start_s"),
                 "clip_end_s": item.get("clip_end_s"),
                 "activity_segment_count": item.get("activity_segment_count"),
+                "activity_peak_count": item.get("activity_peak_count"),
                 "detections_in_clip": item.get("detections_in_clip"),
             }
         )

@@ -197,6 +197,7 @@ def run_night_pipeline(
             audio_dir=input_dir,
             json_dir=detection_output_dir,
             output_dir=review_output_dir,
+            noise_reduced_audio_dir=noise_reduction_output_dir,
             clip_start_s=config.clip_start_s,
             clip_duration_s=config.clip_duration_s,
             padding_before_s=config.padding_before_s,

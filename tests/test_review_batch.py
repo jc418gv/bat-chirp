@@ -113,6 +113,7 @@ class ReviewBatchTests(unittest.TestCase):
                     "clip_mp3": "clip.mp3",
                     "audible_mp3": "audible.mp3",
                     "spectrogram_png": "spec.png",
+                    "noise_reduced_spectrogram_png": "spec_noise_reduced.png",
                     "report_json": "report.json",
                     "clip_start_s": 0.0,
                     "clip_end_s": 10.0,
@@ -121,6 +122,7 @@ class ReviewBatchTests(unittest.TestCase):
                     "activity_start_s": 0.2,
                     "activity_end_s": 6.2,
                     "activity_segment_count": 1,
+                    "activity_peak_count": 14,
                     "detections_in_clip": 2,
                 }
 
@@ -146,11 +148,15 @@ class ReviewBatchTests(unittest.TestCase):
             self.assertEqual(summary["items"][0]["audio_file"], str(audio_path))
             self.assertEqual(summary["items"][0]["json_file"], str(json_path))
             self.assertEqual(summary["items"][0]["clip_mp3"], "clip.mp3")
+            self.assertEqual(summary["items"][0]["noise_reduced_spectrogram_png"], "spec_noise_reduced.png")
+            self.assertEqual(summary["items"][0]["activity_peak_count"], 14)
             self.assertEqual(summary["night_output_dir"], str(night_output_dir))
             self.assertEqual(summary["requested_night_token"], "20260518")
             self.assertEqual(summary["review_assets_csv"], str(night_output_dir / "review_assets.csv"))
             assets_csv = (night_output_dir / "review_assets.csv").read_text(encoding="utf-8")
             self.assertIn("sample_local_time", assets_csv)
+            self.assertIn("noise_reduced_spectrogram_png", assets_csv)
+            self.assertIn("activity_peak_count", assets_csv)
             self.assertIn("220000", assets_csv)
             mock_export.assert_called_once()
 
@@ -178,6 +184,7 @@ class ReviewBatchTests(unittest.TestCase):
                     "clip_mp3": None,
                     "audible_mp3": None,
                     "spectrogram_png": "spec.png",
+                    "noise_reduced_spectrogram_png": None,
                     "report_json": "report.json",
                     "clip_start_s": 0.0,
                     "clip_end_s": 10.0,
@@ -186,6 +193,7 @@ class ReviewBatchTests(unittest.TestCase):
                     "activity_start_s": 0.2,
                     "activity_end_s": 6.2,
                     "activity_segment_count": 1,
+                    "activity_peak_count": 14,
                     "detections_in_clip": 2,
                 }
 
@@ -202,4 +210,5 @@ class ReviewBatchTests(unittest.TestCase):
             self.assertEqual(events[0][1]["matched_job_count"], 1)
             self.assertEqual(events[1][1]["index"], 1)
             self.assertEqual(events[2][1]["activity_segment_count"], 1)
+            self.assertEqual(events[2][1]["activity_peak_count"], 14)
             self.assertEqual(events[3][1]["exported_count"], 1)

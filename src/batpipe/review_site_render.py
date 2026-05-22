@@ -37,7 +37,8 @@ def _render_audio_panel(*, clip_mp3_href: str, clip_wav_href: str, audible_mp3_h
 
 def _render_card_actions(
     *,
-    spectrogram_href: str,
+  spectrogram_href: str,
+  noise_reduced_spectrogram_href: str,
     time_label: str,
     audio_name: str,
     audible_mp3_href: str,
@@ -46,8 +47,17 @@ def _render_card_actions(
     clip_wav_href: str,
     report_href: str,
 ) -> str:
+  noise_reduced_button = ""
+  if noise_reduced_spectrogram_href:
+    noise_reduced_button = (
+      f'<button class="pill pill-button" type="button" '
+      f'data-spectrogram-modal-trigger data-spectrogram-src="{escape(noise_reduced_spectrogram_href)}" '
+      f'data-spectrogram-alt="Noise-reduced spectrogram {escape(time_label)}" '
+      f'data-spectrogram-title="{escape(audio_name)} · noise reduced">noise reduced</button>'
+    )
     return f"""<div class="links">
-      <button class="pill primary pill-button" type="button" data-spectrogram-modal-trigger data-spectrogram-src="{escape(spectrogram_href)}" data-spectrogram-alt="Spectrogram {escape(time_label)}" data-spectrogram-title="{escape(audio_name)}">spectrogram</button>
+    <button class="pill primary pill-button" type="button" data-spectrogram-modal-trigger data-spectrogram-src="{escape(spectrogram_href)}" data-spectrogram-alt="Original spectrogram {escape(time_label)}" data-spectrogram-title="{escape(audio_name)} · original">original spectrogram</button>
+    {noise_reduced_button}
       <a class="pill" href="{escape(audible_mp3_href)}" target="_blank" rel="noreferrer">x8 mp3</a>
       <a class="pill" href="{escape(audible_wav_href)}" target="_blank" rel="noreferrer">x8 wav</a>
       <a class="pill" href="{escape(clip_mp3_href)}" target="_blank" rel="noreferrer">x1 mp3</a>
@@ -60,6 +70,7 @@ def render_cards_html(entries: list[dict[str, object]], summary_dir: Path) -> st
     cards: list[str] = []
     for entry in entries:
         spectrogram_href = _relative_link(summary_dir, str(entry["spectrogram_png"]))
+        noise_reduced_spectrogram_href = _relative_link(summary_dir, str(entry.get("noise_reduced_spectrogram_png") or ""))
         clip_mp3_href = _relative_link(summary_dir, str(entry["clip_mp3"]))
         clip_wav_href = _relative_link(summary_dir, str(entry["clip_wav"]))
         audible_mp3_href = _relative_link(summary_dir, str(entry["audible_mp3"]))
@@ -71,6 +82,11 @@ def render_cards_html(entries: list[dict[str, object]], summary_dir: Path) -> st
         time_label = recording_start.strftime("%H:%M:%S") if hasattr(recording_start, "strftime") else str(recording_start)
         det_count = escape(str(entry["detection_count"]))
         segments = escape(str(entry["activity_segment_count"]))
+        activity_peak_count = entry.get("activity_peak_count")
+        peak_text = ""
+        if activity_peak_count not in (None, ""):
+            peak_count = escape(str(activity_peak_count))
+            peak_text = f"{peak_count} activity peak{'s' if str(activity_peak_count) != '1' else ''} · "
         clip_range = f"{entry['clip_start_s']}s – {entry['clip_end_s']}s"
         audio_name = str(entry["audio_name"])
         audio_panel = _render_audio_panel(
@@ -81,6 +97,7 @@ def render_cards_html(entries: list[dict[str, object]], summary_dir: Path) -> st
         )
         card_actions = _render_card_actions(
             spectrogram_href=spectrogram_href,
+            noise_reduced_spectrogram_href=noise_reduced_spectrogram_href,
             time_label=time_label,
             audio_name=audio_name,
             audible_mp3_href=audible_mp3_href,
@@ -91,14 +108,14 @@ def render_cards_html(entries: list[dict[str, object]], summary_dir: Path) -> st
         )
         cards.append(
             f"""<article class="card">
-  <button class="image-link" type="button" data-spectrogram-modal-trigger data-spectrogram-src="{escape(spectrogram_href)}" data-spectrogram-alt="Spectrogram {escape(time_label)}" data-spectrogram-title="{escape(audio_name)}">
-    <img class="spectrogram" src="{escape(spectrogram_href)}" alt="Spectrogram {escape(time_label)}" loading="lazy">
-    <span class="image-link-label">Expand spectrogram</span>
+  <button class="image-link" type="button" data-spectrogram-modal-trigger data-spectrogram-src="{escape(spectrogram_href)}" data-spectrogram-alt="Original spectrogram {escape(time_label)}" data-spectrogram-title="{escape(audio_name)} · original">
+    <img class="spectrogram" src="{escape(spectrogram_href)}" alt="Original spectrogram {escape(time_label)}" loading="lazy">
+    <span class="image-link-label">Expand original spectrogram</span>
   </button>
   <div class="card-body">
     <p class="card-time">{escape(time_label)}<span class="card-rank">rank {escape(str(entry['rank']))}</span></p>
     <p class="card-filename">{escape(audio_name)}</p>
-    <p class="card-stats">{det_count} detections · {escape(probability_text)} · {segments} activity segment{'s' if str(entry['activity_segment_count']) != '1' else ''} · {escape(clip_range)}</p>
+    <p class="card-stats">{det_count} detections · {peak_text}{escape(probability_text)} · {segments} activity segment{'s' if str(entry['activity_segment_count']) != '1' else ''} · {escape(clip_range)}</p>
     {audio_panel}
     {card_actions}
   </div>

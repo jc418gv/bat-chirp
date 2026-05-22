@@ -19,6 +19,7 @@ def write_review_assets_csv(items: list[dict[str, object]], output_path: Path) -
         "output_dir",
         "sample_local_time",
         "spectrogram_png",
+        "noise_reduced_spectrogram_png",
         "clip_wav",
         "clip_mp3",
         "audible_wav",
@@ -31,6 +32,7 @@ def write_review_assets_csv(items: list[dict[str, object]], output_path: Path) -
         "activity_start_s",
         "activity_end_s",
         "activity_segment_count",
+        "activity_peak_count",
         "detections_in_clip",
     ]
     with output_path.open("w", newline="", encoding="utf-8") as handle:
@@ -123,6 +125,7 @@ def export_review_batch(
     audio_dir: Path,
     json_dir: Path,
     output_dir: Path,
+    noise_reduced_audio_dir: Path | None = None,
     clip_start_s: float | None = None,
     clip_duration_s: float | None = None,
     padding_before_s: float = 5.0,
@@ -181,10 +184,16 @@ def export_review_batch(
                 },
             )
         try:
+            noise_reduced_audio_path = None
+            if noise_reduced_audio_dir is not None:
+                candidate_noise_reduced_audio_path = noise_reduced_audio_dir / job.audio_path.name
+                if candidate_noise_reduced_audio_path.exists():
+                    noise_reduced_audio_path = candidate_noise_reduced_audio_path
             result = export_review_clip(
                 audio_path=job.audio_path,
                 json_path=job.json_path,
                 output_dir=job.output_dir,
+                noise_reduced_audio_path=noise_reduced_audio_path,
                 clip_start_s=clip_start_s,
                 clip_duration_s=clip_duration_s,
                 padding_before_s=padding_before_s,
