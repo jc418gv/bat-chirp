@@ -63,6 +63,7 @@ def export_review_clip(
     audio_path: Path,
     json_path: Path,
     output_dir: Path,
+    noise_reduced_audio_path: Path | None = None,
     clip_start_s: float | None = None,
     clip_duration_s: float | None = None,
     padding_before_s: float = 5.0,
@@ -161,6 +162,26 @@ def export_review_clip(
         spectrogram_config=spectrogram_config,
     )
 
+    noise_reduced_spectrogram_path: Path | None = None
+    if noise_reduced_audio_path is not None and noise_reduced_audio_path.exists():
+        noise_reduced_sample_rate_hz, noise_reduced_audio = _read_wav_mono(noise_reduced_audio_path)
+        noise_reduced_start_index = max(0, int(window.start_time_s * noise_reduced_sample_rate_hz))
+        noise_reduced_end_index = min(len(noise_reduced_audio), int(round(window.end_time_s * noise_reduced_sample_rate_hz)))
+        noise_reduced_clip_audio = noise_reduced_audio[noise_reduced_start_index:noise_reduced_end_index]
+        noise_reduced_spectrogram_path = artifact_paths["noise_reduced_spectrogram_png"]
+        render_review_spectrogram(
+            audio=noise_reduced_clip_audio,
+            sample_rate_hz=noise_reduced_sample_rate_hz,
+            window=window,
+            detections=detections_for_clip,
+            selected_bout=selected_bout,
+            activity_extent=activity_extent,
+            output_path=noise_reduced_spectrogram_path,
+            max_freq_hz=max_freq_hz,
+            title=f"{audio_path.name} [noise reduced]",
+            spectrogram_config=spectrogram_config,
+        )
+
     report_path = artifact_paths["report_json"]
     report = build_review_report(
         audio_path=audio_path,
@@ -193,6 +214,7 @@ def export_review_clip(
         "clip_mp3": str(clip_mp3_path) if clip_mp3_path else None,
         "audible_mp3": str(audible_mp3_path) if audible_mp3_path else None,
         "spectrogram_png": str(spectrogram_path),
+        "noise_reduced_spectrogram_png": str(noise_reduced_spectrogram_path) if noise_reduced_spectrogram_path else None,
         "report_json": str(report_path),
         "clip_start_s": window.start_time_s,
         "clip_end_s": window.end_time_s,
@@ -201,5 +223,6 @@ def export_review_clip(
         "activity_start_s": activity_extent.start_time_s + window.start_time_s if activity_extent else None,
         "activity_end_s": activity_extent.end_time_s + window.start_time_s if activity_extent else None,
         "activity_segment_count": activity_extent.segment_count if activity_extent else 0,
+        "activity_peak_count": len(activity_extent.peak_times_s) if activity_extent else 0,
         "detections_in_clip": len(detections_for_clip),
     }
