@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from batpipe.review.models import ActivityExtractionConfig
+from batpipe.review.model_review import ActivityExtractionConfig
 
 
 @dataclass(slots=True)
@@ -11,6 +11,7 @@ class ActivitySignalEvidence:
     envelope_db: object
     time_step_s: float
     anchor_level_db: float
+    anchor_contrast_db: float
     peak_times_s: object
     peak_levels_db: object
     peak_concentration_scores: object
@@ -65,6 +66,7 @@ def analyze_activity_signal(
         return None
 
     signal_span_db = max(anchor_level - floor, 1e-6)
+    anchor_contrast_db = signal_span_db
     threshold = floor + (anchor_level - floor) * config.threshold_ratio
     activity_threshold = floor + signal_span_db * config.activity_threshold_ratio
     prominence = max(signal_span_db * config.prominence_ratio, 1e-6)
@@ -107,6 +109,8 @@ def analyze_activity_signal(
     concentration_mask = concentration >= config.concentration_threshold
     temporal_support_mask = (local_contrast >= modulation_threshold) & peak_support_mask
     active_mask = (envelope >= activity_threshold) & (concentration_mask | temporal_support_mask)
+    if anchor_contrast_db < config.min_anchor_contrast_db:
+        active_mask = anchor_mask.copy()
     active_mask |= anchor_mask
 
     inter_peak_intervals_s = np.diff(peak_times)
@@ -120,6 +124,7 @@ def analyze_activity_signal(
         envelope_db=envelope,
         time_step_s=time_step_s,
         anchor_level_db=anchor_level,
+        anchor_contrast_db=anchor_contrast_db,
         peak_times_s=peak_times,
         peak_levels_db=peak_levels,
         peak_concentration_scores=peak_concentration_scores,

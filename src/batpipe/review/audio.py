@@ -1,18 +1,19 @@
 from __future__ import annotations
 
-from pathlib import Path
 import json
+from pathlib import Path
 
 from batpipe.review.acoustic import extract_bat_activity
 from batpipe.review.clip import build_review_artifact_paths
 from batpipe.review.detection import choose_clip_window, detections_in_window, load_clip_detections
-from batpipe.review.models import ActivityExtractionConfig, ClipSelectionConfig, SpectrogramConfig
+from batpipe.review.model_review import ActivityExtractionConfig, ClipSelectionConfig, SpectrogramConfig
 from batpipe.review.report import build_review_report
 from batpipe.review.spectrogram import render_review_spectrogram
 
 
 def _read_wav_mono(audio_path: Path):
     import warnings
+
     from scipy.io import wavfile
 
     with warnings.catch_warnings():

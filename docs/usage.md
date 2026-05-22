@@ -72,6 +72,8 @@ The setup script currently installs CUDA 12.4 PyTorch wheels because that is a c
 
 CPU-only execution is possible for development and small tests, but the intended production workflow is GPU-backed inference on a Linux host.
 
+Routine BatDetect2 runs are pinned to one visible GPU by default. That avoids Lightning auto-selecting all available GPUs and spawning distributed inference for ordinary nightly runs, which made detector outputs harder to compare across reruns. If you need different device visibility, set `CUDA_VISIBLE_DEVICES` explicitly before invoking the pipeline or set `BATPIPE_BATDETECT2_CUDA_VISIBLE_DEVICES` to a specific device list. Use `all`, `ALL`, or `*` to leave GPU visibility unrestricted.
+
 ## Outputs
 
 The summarizer writes:
@@ -109,5 +111,7 @@ The nightly `index.html` is grouped by hour so you can browse detections in expa
 MP3 generation requires `ffmpeg`; on many Linux hosts that will simply be available as `ffmpeg` on `PATH`, or at a path such as `/usr/bin/ffmpeg`.
 
 The review exporter groups nearby detections into one primary review bout and exports context around that bout rather than spanning every detection in the file. It then uses a denoised, band-limited peak search around the anchored bout to underline one or more candidate chirp segments instead of forcing a single dashed span. Connected chirp segments can now knit together up to `2.5 ×` the average inter-peak interval within the detected train, which better preserves visibly continuous call series without collapsing obviously separate bursts into one candidate. Use this step to compare visible non-bat noise in the clip against the narrower annotated regions that BatDetect2 marked as echolocation. In North American review, treat any BatDetect2 species name as a raw upstream model label rather than a valid local species ID.
+
+When the review layer merges selected activity spans into one event, `detection_gap` audit annotations are only emitted for long lulls that are substantially larger than the nearby chirp cadence. They are intended to flag likely dropped chirps inside a still-related event, not ordinary spacing between chirps, echoes, or the next cruising call.
 
 Current limitation: if the selected bout lands at the start or end of the source WAV, the exported clip can still truncate at the file boundary because adjacent-file stitching is not implemented yet.

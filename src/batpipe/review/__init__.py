@@ -22,18 +22,21 @@ from batpipe.review.detection import (
     select_primary_bout,
 )
 from batpipe.review.models import (
+    CLASSIFICATION_WARNING,
     ActivityBoundaryDecision,
     ActivityExtent,
     ActivityExtractionConfig,
     ActivitySegment,
-    CLASSIFICATION_WARNING,
+    AnnotationCategory,
+    AuditAnnotation,
+    BoundaryStopReason,
     ClipDetection,
     ClipSelectionConfig,
     ClipWindow,
     DetectionBout,
     PeakEvidence,
-    SpectrogramConfig,
     ReviewBatchJob,
+    SpectrogramConfig,
 )
 from batpipe.review.report import build_review_report
 from batpipe.review.spectrogram import render_review_spectrogram
@@ -43,6 +46,9 @@ __all__ = [
     "ActivityExtent",
     "ActivityExtractionConfig",
     "ActivitySegment",
+    "AnnotationCategory",
+    "AuditAnnotation",
+    "BoundaryStopReason",
     "CLASSIFICATION_WARNING",
     "ClipDetection",
     "ClipSelectionConfig",

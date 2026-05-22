@@ -5,14 +5,9 @@ from pathlib import Path
 
 from batpipe.audiomoth import parse_audiomoth_timestamp
 from batpipe.review.band_analysis import compute_spectrogram_db
-from batpipe.review.models import (
-    ActivityExtent,
-    ActivitySegment,
-    ClipDetection,
-    ClipWindow,
-    DetectionBout,
-    SpectrogramConfig,
-)
+from batpipe.review.model_activity import ActivityExtent, ActivitySegment
+from batpipe.review.model_detection import ClipDetection, ClipWindow, DetectionBout
+from batpipe.review.model_review import SpectrogramConfig
 
 
 def render_review_spectrogram(
@@ -48,7 +43,7 @@ def render_review_spectrogram(
         sharex=True,
         gridspec_kw={"height_ratios": [12, 1.8], "hspace": 0.08},
     )
-    mesh = axis.pcolormesh(
+    axis.pcolormesh(
         times_s,
         frequencies_hz[frequency_mask] / 1000.0,
         spectrum_db[frequency_mask],
@@ -71,6 +66,13 @@ def render_review_spectrogram(
         detected_end_s = min(clip_duration_s, selected_bout.end_time_s - window.start_time_s)
         range_axis.hlines(0.75, detected_start_s, detected_end_s, color="#8bd3dd", linewidth=3.0)
         range_axis.vlines([detected_start_s, detected_end_s], 0.68, 0.82, color="#8bd3dd", linewidth=2.0)
+        detection_start_times_s = [
+            max(0.0, min(clip_duration_s, detection.start_time_s - window.start_time_s))
+            for detection in detections
+        ]
+        if detection_start_times_s:
+            range_axis.vlines(detection_start_times_s, 0.70, 0.80, color="#0f7173", linewidth=1.1, alpha=0.95)
+            range_axis.scatter(detection_start_times_s, [0.75] * len(detection_start_times_s), s=10, color="#0f7173", zorder=3)
 
     if activity_extent is not None:
         segments = activity_extent.segments or [
@@ -85,6 +87,33 @@ def render_review_spectrogram(
             activity_end_s = min(clip_duration_s, segment.end_time_s)
             range_axis.hlines(0.25, activity_start_s, activity_end_s, color="#f4d35e", linewidth=2.2, linestyles="--")
             range_axis.vlines([activity_start_s, activity_end_s], 0.18, 0.32, color="#f4d35e", linewidth=1.6, linestyles="--")
+        activity_peak_times_s = [
+            max(0.0, min(clip_duration_s, peak.time_s))
+            for peak in activity_extent.peak_evidence
+            if peak.included_in_activity
+        ]
+        if not activity_peak_times_s:
+            activity_peak_times_s = [
+                max(0.0, min(clip_duration_s, peak_time_s))
+                for peak_time_s in activity_extent.peak_times_s
+            ]
+        if activity_peak_times_s:
+            range_axis.vlines(activity_peak_times_s, 0.20, 0.30, color="#9c6644", linewidth=0.9, alpha=0.95)
+            range_axis.scatter(activity_peak_times_s, [0.25] * len(activity_peak_times_s), s=10, color="#9c6644", zorder=3)
+        detection_gap_annotations = [
+            annotation
+            for annotation in activity_extent.audit_annotations
+            if annotation.category == "detection_gap"
+        ]
+        for annotation in detection_gap_annotations:
+            gap_start_s = max(0.0, min(clip_duration_s, annotation.start_time_s))
+            gap_end_s = max(0.0, min(clip_duration_s, annotation.end_time_s))
+            if gap_end_s <= gap_start_s:
+                continue
+            range_axis.hlines(0.25, gap_start_s, gap_end_s, color="#c1121f", linewidth=2.0, linestyles=":")
+            range_axis.vlines([gap_start_s, gap_end_s], 0.19, 0.31, color="#c1121f", linewidth=1.0, linestyles=":")
+            gap_midpoint_s = (gap_start_s + gap_end_s) / 2.0
+            range_axis.text(gap_midpoint_s, 0.34, "gap", ha="center", va="bottom", fontsize=7, color="#9d0208")
 
     try:
         recording_start_dt = parse_audiomoth_timestamp(title)
@@ -109,6 +138,11 @@ def render_review_spectrogram(
             f"Detected: {_wc(selected_bout.start_time_s)} – {_wc(selected_bout.end_time_s)}"
             f"  ({selected_bout.detection_count} detection{'s' if selected_bout.detection_count != 1 else ''})"
         )
+    if detections:
+        clipped_detection_starts = [_wc(detection.start_time_s) for detection in detections[:6]]
+        if len(detections) > 6:
+            clipped_detection_starts.append(f"+{len(detections) - 6} more")
+        footer_lines.append(f"Call starts: {', '.join(clipped_detection_starts)}")
     if activity_extent is not None:
         seg_texts = [
             f"{_wc(seg.start_time_s + window.start_time_s)} – {_wc(seg.end_time_s + window.start_time_s)}"
@@ -127,6 +161,25 @@ def render_review_spectrogram(
             f"  ({len(activity_extent.peak_times_s)} peaks, {activity_extent.segment_count}"
             f" segment{'s' if activity_extent.segment_count != 1 else ''})"
         )
+        activity_peak_starts = [
+            _wc(window.start_time_s + peak.time_s)
+            for peak in activity_extent.peak_evidence
+            if peak.included_in_activity
+        ]
+        if activity_peak_starts:
+            clipped_activity_peak_starts = activity_peak_starts[:6]
+            if len(activity_peak_starts) > 6:
+                clipped_activity_peak_starts.append(f"+{len(activity_peak_starts) - 6} more")
+            footer_lines.append(f"Rule matches: {', '.join(clipped_activity_peak_starts)}")
+        if activity_extent.audit_annotations:
+            annotation_texts = []
+            for annotation in activity_extent.audit_annotations[:4]:
+                annotation_texts.append(
+                    f"{annotation.category} {_wc(window.start_time_s + annotation.start_time_s)} – {_wc(window.start_time_s + annotation.end_time_s)}"
+                )
+            if len(activity_extent.audit_annotations) > 4:
+                annotation_texts.append(f"+{len(activity_extent.audit_annotations) - 4} more")
+            footer_lines.append(f"Annotations: {', '.join(annotation_texts)}")
         if activity_extent.left_boundary or activity_extent.right_boundary:
             left_reason = activity_extent.left_boundary.stop_reason if activity_extent.left_boundary else "unknown"
             right_reason = activity_extent.right_boundary.stop_reason if activity_extent.right_boundary else "unknown"

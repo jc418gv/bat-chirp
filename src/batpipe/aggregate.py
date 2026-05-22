@@ -2,12 +2,12 @@ from __future__ import annotations
 
 """Local reporting built from upstream BatDetect2 JSON outputs."""
 
+import csv
+import json
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-import csv
-import json
 
 from .audiomoth import normalize_recording_name, parse_audiomoth_timestamp
 

@@ -1,9 +1,8 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime, timedelta
 from pathlib import Path
-import re
-
 
 AUDIOMOTH_NAME_RE = re.compile(
     r"(?P<date>\d{8})_(?P<time>\d{6})T(?:\.[A-Za-z0-9]+)?$",

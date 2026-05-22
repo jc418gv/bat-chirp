@@ -74,6 +74,15 @@ In most cases, that is enough.
 - `continue_on_error`
   Whether batch review export continues if one file fails.
 
+## Runtime Environment Overrides
+
+Some runtime behavior is controlled by environment variables rather than JSON config fields:
+
+- `CUDA_VISIBLE_DEVICES`
+  Passed through directly to BatDetect2 when already set in the parent environment.
+- `BATPIPE_BATDETECT2_CUDA_VISIBLE_DEVICES`
+  Batpipe-specific override for BatDetect2 device visibility when `CUDA_VISIBLE_DEVICES` is not already set. The default routine behavior is `0`, which pins inference to one visible GPU. Use `all`, `ALL`, or `*` to leave GPU visibility unrestricted.
+
 ## Derived Output Paths
 
 If `work_root_dir` is present, the loader derives these internal paths automatically unless you explicitly override them:

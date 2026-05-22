@@ -3,7 +3,9 @@ from __future__ import annotations
 from dataclasses import asdict
 from pathlib import Path
 
-from batpipe.review.models import ActivityExtent, CLASSIFICATION_WARNING, ClipDetection, ClipWindow, DetectionBout
+from batpipe.review.model_activity import ActivityExtent
+from batpipe.review.model_detection import ClipDetection, ClipWindow, DetectionBout
+from batpipe.review.model_review import CLASSIFICATION_WARNING
 
 
 def build_review_report(
@@ -45,6 +47,27 @@ def build_review_report(
             return None
         return float(sum(values) / len(values))
 
+    detection_start_times_recording_s = [float(item.start_time_s) for item in detections_for_clip]
+    detection_end_times_recording_s = [float(item.end_time_s) for item in detections_for_clip]
+    detection_start_times_clip_s = [
+        float(max(0.0, item.start_time_s - window.start_time_s))
+        for item in detections_for_clip
+    ]
+    detection_end_times_clip_s = [
+        float(max(0.0, item.end_time_s - window.start_time_s))
+        for item in detections_for_clip
+    ]
+    activity_peak_times_clip_s = [
+        float(item.time_s)
+        for item in (activity_extent.peak_evidence if activity_extent else [])
+        if item.included_in_activity
+    ]
+    activity_peak_times_recording_s = [
+        float(window.start_time_s + item.time_s)
+        for item in (activity_extent.peak_evidence if activity_extent else [])
+        if item.included_in_activity
+    ]
+
     return {
         "audio_file": str(audio_path),
         "json_file": str(json_path),
@@ -70,6 +93,12 @@ def build_review_report(
         "selected_bout_detection_count": selected_bout.detection_count if selected_bout else 0,
         "selected_bout_low_freq_hz": selected_bout.min_low_freq_hz if selected_bout else None,
         "selected_bout_high_freq_hz": selected_bout.max_high_freq_hz if selected_bout else None,
+        "detection_start_times_recording_s": detection_start_times_recording_s,
+        "detection_end_times_recording_s": detection_end_times_recording_s,
+        "detection_start_times_clip_s": detection_start_times_clip_s,
+        "detection_end_times_clip_s": detection_end_times_clip_s,
+        "activity_peak_times_recording_s": activity_peak_times_recording_s,
+        "activity_peak_times_clip_s": activity_peak_times_clip_s,
         "activity_start_s": activity_extent.start_time_s + window.start_time_s if activity_extent else None,
         "activity_end_s": activity_extent.end_time_s + window.start_time_s if activity_extent else None,
         "activity_duration_s": activity_extent.duration_s if activity_extent else None,
@@ -79,7 +108,9 @@ def build_review_report(
         "activity_min_concentration": min(activity_peak_concentrations) if activity_peak_concentrations else None,
         "anchor_mean_concentration": _mean(anchor_peak_concentrations),
         "activity_segments": [asdict(segment) for segment in activity_extent.segments] if activity_extent else [],
+        "activity_selected_segments": [asdict(segment) for segment in activity_extent.selected_segments] if activity_extent else [],
         "activity_peak_evidence": [asdict(item) for item in activity_extent.peak_evidence] if activity_extent else [],
+        "audit_annotations": [asdict(item) for item in activity_extent.audit_annotations] if activity_extent else [],
         "activity_left_boundary": asdict(activity_extent.left_boundary) if activity_extent and activity_extent.left_boundary else None,
         "activity_right_boundary": asdict(activity_extent.right_boundary) if activity_extent and activity_extent.right_boundary else None,
         "clip_mp3": str(clip_mp3_path) if clip_mp3_path else None,

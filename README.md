@@ -25,6 +25,8 @@ This is the static review HTML generated for one hour of a night run. Each card 
 
 This is one exported review spectrogram. The solid footer marker shows the model-detected bout, while the dashed footer span shows the context-expanded candidate train segment that the local review layer inferred around it.
 
+Recent review exports also carry audit markers that are meant to stay mechanical and reviewable. In particular, `detection_gap` annotations are reserved for long lulls that are much larger than the nearby chirp cadence, which makes them better proxies for likely dropped chirps than ordinary pauses between calls or echoes.
+
 ## What This Repo Contains
 
 This repository mainly contains glue code:
@@ -76,6 +78,25 @@ Detailed setup, commands, and output descriptions are in [docs/usage.md](docs/us
 The base site config is meant to stay stable. In the normal host setup, it should mainly define `recording_input_dir`, `work_root_dir`, and tool paths. The per-night token such as `20260518` is normally supplied on the command line to [scripts/run_night_for_date.sh](scripts/run_night_for_date.sh), not stored permanently in the JSON file.
 
 Configuration details are in [docs/configuration.md](docs/configuration.md).
+
+Routine detection runs now pin BatDetect2 to one visible GPU by default so the same night can be rerun without Lightning auto-spawning distributed inference across every device on the host. If you intentionally want a different CUDA visibility policy, set `CUDA_VISIBLE_DEVICES` yourself or use `BATPIPE_BATDETECT2_CUDA_VISIBLE_DEVICES` before launching the pipeline.
+
+## Development
+
+Install the local package with development tools:
+
+```bash
+python -m pip install -e ".[dev]"
+```
+
+Run the merge-readiness checks locally:
+
+```bash
+python -m ruff check src tests scripts
+python -m pytest -q
+```
+
+GitHub Actions now runs the same lint and test checks for pull requests and pushes to the main development branches.
 
 ## Repo Conventions
 

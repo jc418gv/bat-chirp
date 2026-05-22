@@ -1,5 +1,5 @@
-from datetime import datetime
 import unittest
+from datetime import datetime
 
 from batpipe.audiomoth import normalize_recording_name, parse_audiomoth_timestamp
 

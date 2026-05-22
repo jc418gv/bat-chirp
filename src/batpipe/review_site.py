@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+import csv
 from collections import defaultdict
 from pathlib import Path
-import csv
 
 from batpipe.audiomoth import parse_audiomoth_timestamp
-from batpipe.review_site_render import render_cards_html, render_hour_card, render_hour_sections_html, render_html_document
+from batpipe.review_site_render import (
+    render_cards_html,
+    render_hour_card,
+    render_hour_sections_html,
+    render_html_document,
+)
 
 _ASSETS_DIR = Path(__file__).parent / "assets"
 

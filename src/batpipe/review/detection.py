@@ -3,7 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from batpipe.review.models import ClipDetection, ClipSelectionConfig, ClipWindow, DetectionBout
+from batpipe.review.model_detection import ClipDetection, ClipWindow, DetectionBout
+from batpipe.review.model_review import ClipSelectionConfig
 
 
 def _to_float(value: object) -> float | None:

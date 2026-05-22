@@ -1,10 +1,15 @@
-from pathlib import Path
-from tempfile import TemporaryDirectory
 import json
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from batpipe.review.batch import _resolve_night_output_dir, derive_night_token, discover_review_jobs, export_review_batch
+from batpipe.review.batch import (
+    _resolve_night_output_dir,
+    derive_night_token,
+    discover_review_jobs,
+    export_review_batch,
+)
 
 
 class ReviewBatchTests(unittest.TestCase):
