@@ -54,15 +54,19 @@ In most cases, that is enough.
 - `extra_args`
   Extra BatDetect2 command-line arguments.
 - `noise_reduction_enabled`
-  If true, the pipeline first writes spectral-gated copies of the selected WAV files and runs BatDetect2 on those enhanced copies. Review clips and spectrograms still use the original recordings because the enhanced files are only a detection aid.
+  If true, the pipeline first writes enhanced copies of the selected WAV files and runs BatDetect2 on those copies. Review clips and spectrograms still use the original recordings because the enhanced files are only a detection aid.
 - `noise_reduction_output_dir`
   Optional directory for enhanced WAV files. If omitted, it defaults beside the detection output as `noise-reduced`.
+- `noise_reduction_mode`
+  Enhancement method. `spectral_subtract` is the default and current recommended mode for noisy ultrasonic clips. `soft_gate` keeps the older sigmoid mask if you want to compare behavior.
 - `noise_reduction_n_fft`, `noise_reduction_hop`
-  STFT size and hop used for spectral gating. For ultrasonic AudioMoth files, start with `1024/128` or `2048/256`.
+  STFT size and hop used for noise reduction. For ultrasonic AudioMoth files, start with `1024/128` or `2048/256`.
 - `noise_reduction_percentile`
   Per-frequency noise floor percentile. Lower values are more conservative; `20.0` is the default starting point.
+- `noise_reduction_spectral_subtract_oversubtract`, `noise_reduction_spectral_subtract_floor_ratio`, `noise_reduction_spectral_subtract_smoothing_bins`
+  Spectral subtraction controls. Higher oversubtraction removes more stationary floor, floor ratio prevents hard nulling, and smoothing bins stabilize the estimated floor across adjacent frequencies.
 - `noise_reduction_margin_db`, `noise_reduction_softness_db`, `noise_reduction_floor_gain`
-  Soft spectral gate controls. Higher margin suppresses more near-floor energy; floor gain keeps some residual signal so the enhanced audio does not become hard-zeroed.
+  Soft spectral gate controls used only when `noise_reduction_mode` is `soft_gate`.
 - `clip_start_s`
   Fixed clip start override for review export.
 - `clip_duration_s`

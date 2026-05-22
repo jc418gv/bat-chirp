@@ -54,9 +54,13 @@ def _default_noise_reduction_output_dir(config: SiteConfig, detection_output_dir
 
 def _build_noise_reduction_config(config: SiteConfig) -> NoiseReductionConfig:
     return NoiseReductionConfig(
+        mode=config.noise_reduction_mode,
         n_fft=config.noise_reduction_n_fft,
         hop=config.noise_reduction_hop,
         noise_floor_percentile=config.noise_reduction_percentile,
+        spectral_subtract_oversubtract=config.noise_reduction_spectral_subtract_oversubtract,
+        spectral_subtract_floor_ratio=config.noise_reduction_spectral_subtract_floor_ratio,
+        spectral_subtract_smoothing_bins=config.noise_reduction_spectral_subtract_smoothing_bins,
         margin_db=config.noise_reduction_margin_db,
         softness_db=config.noise_reduction_softness_db,
         floor_gain=config.noise_reduction_floor_gain,

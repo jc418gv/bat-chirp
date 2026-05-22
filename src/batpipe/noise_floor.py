@@ -12,9 +12,13 @@ EPS = 1e-20
 
 @dataclass(slots=True)
 class NoiseReductionConfig:
+    mode: str = "spectral_subtract"
     n_fft: int = 1024
     hop: int = 128
     noise_floor_percentile: float = 20.0
+    spectral_subtract_oversubtract: float = 2.5
+    spectral_subtract_floor_ratio: float = 0.01
+    spectral_subtract_smoothing_bins: int = 7
     margin_db: float = 6.0
     softness_db: float = 3.0
     floor_gain: float = 0.05
@@ -51,6 +55,14 @@ def reduce_noise_floor(audio: np.ndarray, sample_rate_hz: int, config: NoiseRedu
         raise ValueError("noise reduction hop must be less than or equal to n_fft.")
     if not 0.0 <= config.noise_floor_percentile <= 100.0:
         raise ValueError("noise reduction noise_floor_percentile must be between 0 and 100.")
+    if config.mode not in {"spectral_subtract", "soft_gate"}:
+        raise ValueError("noise reduction mode must be 'spectral_subtract' or 'soft_gate'.")
+    if config.spectral_subtract_oversubtract < 0.0:
+        raise ValueError("noise reduction spectral_subtract_oversubtract must be non-negative.")
+    if not 0.0 <= config.spectral_subtract_floor_ratio <= 1.0:
+        raise ValueError("noise reduction spectral_subtract_floor_ratio must be between 0 and 1.")
+    if config.spectral_subtract_smoothing_bins <= 0:
+        raise ValueError("noise reduction spectral_subtract_smoothing_bins must be positive.")
 
     waveform = np.asarray(audio, dtype=np.float32)
     if waveform.ndim == 1:
@@ -78,15 +90,10 @@ def _reduce_noise_floor_channel(waveform: np.ndarray, sample_rate_hz: int, confi
         boundary="zeros",
         padded=True,
     )
-    power = np.abs(spectrum) ** 2
-    noise_power = np.percentile(power, config.noise_floor_percentile, axis=1)
-    power_db = 10.0 * np.log10(power + EPS)
-    noise_db = 10.0 * np.log10(noise_power[:, np.newaxis] + EPS)
-    excess_db = power_db - noise_db
-
-    mask = 1.0 / (1.0 + np.exp(-(excess_db - config.margin_db) / max(config.softness_db, 1e-6)))
-    mask = config.floor_gain + (1.0 - config.floor_gain) * mask
-    filtered_spectrum = spectrum * mask
+    if config.mode == "soft_gate":
+        filtered_spectrum = _apply_soft_gate(spectrum, config)
+    else:
+        filtered_spectrum = _apply_spectral_subtraction(spectrum, config)
 
     _, enhanced = istft(
         filtered_spectrum,
@@ -102,6 +109,33 @@ def _reduce_noise_floor_channel(waveform: np.ndarray, sample_rate_hz: int, confi
     elif enhanced.size < waveform.size:
         enhanced = np.pad(enhanced, (0, waveform.size - enhanced.size))
     return enhanced.astype(np.float32)
+
+
+def _apply_soft_gate(spectrum: np.ndarray, config: NoiseReductionConfig) -> np.ndarray:
+    power = np.abs(spectrum) ** 2
+    noise_power = np.percentile(power, config.noise_floor_percentile, axis=1)
+    power_db = 10.0 * np.log10(power + EPS)
+    noise_db = 10.0 * np.log10(noise_power[:, np.newaxis] + EPS)
+    excess_db = power_db - noise_db
+
+    mask = 1.0 / (1.0 + np.exp(-(excess_db - config.margin_db) / max(config.softness_db, 1e-6)))
+    mask = config.floor_gain + (1.0 - config.floor_gain) * mask
+    return spectrum * mask
+
+
+def _apply_spectral_subtraction(spectrum: np.ndarray, config: NoiseReductionConfig) -> np.ndarray:
+    power = np.abs(spectrum) ** 2
+    noise_power = np.percentile(power, config.noise_floor_percentile, axis=1)
+    if config.spectral_subtract_smoothing_bins > 1:
+        kernel = np.ones(config.spectral_subtract_smoothing_bins, dtype=np.float32)
+        kernel /= float(config.spectral_subtract_smoothing_bins)
+        noise_power = np.convolve(noise_power, kernel, mode="same")
+    residual_power = np.maximum(
+        power - config.spectral_subtract_oversubtract * noise_power[:, np.newaxis],
+        config.spectral_subtract_floor_ratio * noise_power[:, np.newaxis],
+    )
+    gain = np.sqrt(residual_power / np.maximum(power, EPS))
+    return spectrum * gain
 
 
 def reduce_noise_floor_wav(source_path: Path, output_path: Path, config: NoiseReductionConfig | None = None) -> Path:

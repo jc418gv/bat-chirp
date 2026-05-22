@@ -20,9 +20,13 @@ class SiteConfigTests(unittest.TestCase):
   "subset_limit": 10,
   "name_contains": ["20260518"],
     "noise_reduction_enabled": true,
+    "noise_reduction_mode": "spectral_subtract",
     "noise_reduction_n_fft": 2048,
     "noise_reduction_hop": 256,
     "noise_reduction_percentile": 15.0,
+    "noise_reduction_spectral_subtract_oversubtract": 3.0,
+    "noise_reduction_spectral_subtract_floor_ratio": 0.02,
+    "noise_reduction_spectral_subtract_smoothing_bins": 9,
     "noise_reduction_margin_db": 5.0,
     "noise_reduction_softness_db": 2.5,
     "noise_reduction_floor_gain": 0.1,
@@ -48,9 +52,13 @@ class SiteConfigTests(unittest.TestCase):
             self.assertEqual(config.subset_limit, 10)
             self.assertEqual(config.name_contains, ["20260518"])
             self.assertTrue(config.noise_reduction_enabled)
+            self.assertEqual(config.noise_reduction_mode, "spectral_subtract")
             self.assertEqual(config.noise_reduction_n_fft, 2048)
             self.assertEqual(config.noise_reduction_hop, 256)
             self.assertEqual(config.noise_reduction_percentile, 15.0)
+            self.assertEqual(config.noise_reduction_spectral_subtract_oversubtract, 3.0)
+            self.assertEqual(config.noise_reduction_spectral_subtract_floor_ratio, 0.02)
+            self.assertEqual(config.noise_reduction_spectral_subtract_smoothing_bins, 9)
             self.assertEqual(config.noise_reduction_margin_db, 5.0)
             self.assertEqual(config.noise_reduction_softness_db, 2.5)
             self.assertEqual(config.noise_reduction_floor_gain, 0.1)

@@ -24,9 +24,13 @@ class SiteConfig:
     extra_args: list[str] = field(default_factory=list)
     noise_reduction_enabled: bool = False
     noise_reduction_output_dir: str | None = None
+    noise_reduction_mode: str = "spectral_subtract"
     noise_reduction_n_fft: int = 1024
     noise_reduction_hop: int = 128
     noise_reduction_percentile: float = 20.0
+    noise_reduction_spectral_subtract_oversubtract: float = 2.5
+    noise_reduction_spectral_subtract_floor_ratio: float = 0.01
+    noise_reduction_spectral_subtract_smoothing_bins: int = 7
     noise_reduction_margin_db: float = 6.0
     noise_reduction_softness_db: float = 3.0
     noise_reduction_floor_gain: float = 0.05
@@ -93,9 +97,13 @@ def load_site_config(path: Path) -> SiteConfig:
         extra_args=[str(item) for item in payload.get("extra_args", [])],
         noise_reduction_enabled=bool(payload.get("noise_reduction_enabled", False)),
         noise_reduction_output_dir=noise_reduction_output_dir,
+        noise_reduction_mode=str(payload.get("noise_reduction_mode", "spectral_subtract")),
         noise_reduction_n_fft=int(payload.get("noise_reduction_n_fft", 1024)),
         noise_reduction_hop=int(payload.get("noise_reduction_hop", 128)),
         noise_reduction_percentile=float(payload.get("noise_reduction_percentile", 20.0)),
+        noise_reduction_spectral_subtract_oversubtract=float(payload.get("noise_reduction_spectral_subtract_oversubtract", 2.5)),
+        noise_reduction_spectral_subtract_floor_ratio=float(payload.get("noise_reduction_spectral_subtract_floor_ratio", 0.01)),
+        noise_reduction_spectral_subtract_smoothing_bins=int(payload.get("noise_reduction_spectral_subtract_smoothing_bins", 7)),
         noise_reduction_margin_db=float(payload.get("noise_reduction_margin_db", 6.0)),
         noise_reduction_softness_db=float(payload.get("noise_reduction_softness_db", 3.0)),
         noise_reduction_floor_gain=float(payload.get("noise_reduction_floor_gain", 0.05)),
