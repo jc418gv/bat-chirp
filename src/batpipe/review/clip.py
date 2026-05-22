@@ -25,5 +25,6 @@ def build_review_artifact_paths(
         "audible_wav": output_dir / f"clip_audible_x{slowdown_factor}_{sample_local_time}.wav",
         "audible_mp3": output_dir / f"clip_audible_x{slowdown_factor}_{sample_local_time}.mp3",
         "spectrogram_png": output_dir / f"spectrogram_{sample_local_time}.png",
+        "noise_reduced_spectrogram_png": output_dir / f"spectrogram_noise_reduced_{sample_local_time}.png",
         "report_json": output_dir / f"detections_{sample_local_time}.json",
     }
