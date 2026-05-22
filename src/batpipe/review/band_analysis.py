@@ -14,6 +14,8 @@ class SpectrogramAnalysis:
     frequencies_hz: Any
     times_s: Any
     spectrum_db: Any
+    noise_floor_db: Any
+    excess_db: Any
 
 
 @dataclass(slots=True)
@@ -26,6 +28,28 @@ class DetectionBandAnalysis:
     dominant_bin_share: Any
     normalized_entropy: Any
     concentration_score: Any
+
+
+def compute_per_frequency_excess_db(spectrum_db, percentile: float):
+    import numpy as np
+
+    if not 0.0 <= percentile <= 100.0:
+        raise ValueError("noise_floor_percentile must be between 0 and 100.")
+
+    spectrum = np.asarray(spectrum_db, dtype=np.float32)
+    finite_mask = np.isfinite(spectrum)
+    if not finite_mask.any():
+        noise_floor_db = np.zeros((spectrum.shape[0],), dtype=np.float32)
+        excess_db = np.zeros_like(spectrum, dtype=np.float32)
+        return noise_floor_db, excess_db
+
+    safe_spectrum = spectrum.copy()
+    global_floor = float(np.nanpercentile(safe_spectrum[finite_mask], percentile))
+    safe_spectrum[~finite_mask] = global_floor
+    noise_floor_db = np.nanpercentile(safe_spectrum, percentile, axis=1).astype(np.float32)
+    excess_db = (safe_spectrum - noise_floor_db[:, np.newaxis]).astype(np.float32)
+    np.maximum(excess_db, 0.0, out=excess_db)
+    return noise_floor_db, excess_db
 
 
 def compute_spectrogram_db(audio, sample_rate_hz: int, config: SpectrogramConfig) -> SpectrogramAnalysis:
@@ -54,12 +78,18 @@ def compute_spectrogram_db(audio, sample_rate_hz: int, config: SpectrogramConfig
         mode="magnitude",
     )
     spectrum_db = 20.0 * np.log10(np.maximum(spectrum, 1e-12))
+    noise_floor_db, excess_db = compute_per_frequency_excess_db(
+        spectrum_db,
+        percentile=config.noise_floor_percentile,
+    )
     return SpectrogramAnalysis(
         waveform=waveform,
         clip_duration_s=clip_duration_s,
         frequencies_hz=frequencies_hz,
         times_s=times_s,
         spectrum_db=spectrum_db,
+        noise_floor_db=noise_floor_db,
+        excess_db=excess_db,
     )
 
 
@@ -79,10 +109,14 @@ def estimate_band_envelope_db(
     if not band_mask.any():
         return None
 
+    # The caller passes excess-above-floor dB here, not raw spectrogram dB.
+    # This is the audio equivalent of subtracting a background image: each
+    # frequency bin is normalized against its own robust low-percentile floor,
+    # so broad raised noise does not masquerade as activity merely because the
+    # whole selected band is louder than usual.
     band_spectrum = spectrum_db[band_mask].copy()
-    band_spectrum -= np.nanmean(band_spectrum, axis=1, keepdims=True)
     np.maximum(band_spectrum, 0.0, out=band_spectrum)
-    band_energy = np.maximum(band_spectrum, 1e-12)
+    band_energy = np.maximum(np.expm1(np.log(10.0) * np.clip(band_spectrum, 0.0, 80.0) / 10.0), 1e-12)
     frame_energy = np.sum(band_energy, axis=0)
     zero_energy_mask = frame_energy <= 1e-9
     frame_energy = np.where(zero_energy_mask, 1.0, frame_energy)

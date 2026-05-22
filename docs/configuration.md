@@ -53,6 +53,16 @@ In most cases, that is enough.
   Additional filename substring filters applied before the night window filter.
 - `extra_args`
   Extra BatDetect2 command-line arguments.
+- `noise_reduction_enabled`
+  If true, the pipeline first writes spectral-gated copies of the selected WAV files and runs BatDetect2 on those enhanced copies. Review clips and spectrograms still use the original recordings because the enhanced files are only a detection aid.
+- `noise_reduction_output_dir`
+  Optional directory for enhanced WAV files. If omitted, it defaults beside the detection output as `noise-reduced`.
+- `noise_reduction_n_fft`, `noise_reduction_hop`
+  STFT size and hop used for spectral gating. For ultrasonic AudioMoth files, start with `1024/128` or `2048/256`.
+- `noise_reduction_percentile`
+  Per-frequency noise floor percentile. Lower values are more conservative; `20.0` is the default starting point.
+- `noise_reduction_margin_db`, `noise_reduction_softness_db`, `noise_reduction_floor_gain`
+  Soft spectral gate controls. Higher margin suppresses more near-floor energy; floor gain keeps some residual signal so the enhanced audio does not become hard-zeroed.
 - `clip_start_s`
   Fixed clip start override for review export.
 - `clip_duration_s`

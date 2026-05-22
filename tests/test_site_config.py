@@ -19,6 +19,13 @@ class SiteConfigTests(unittest.TestCase):
   "detection_threshold": 0.5,
   "subset_limit": 10,
   "name_contains": ["20260518"],
+    "noise_reduction_enabled": true,
+    "noise_reduction_n_fft": 2048,
+    "noise_reduction_hop": 256,
+    "noise_reduction_percentile": 15.0,
+    "noise_reduction_margin_db": 5.0,
+    "noise_reduction_softness_db": 2.5,
+    "noise_reduction_floor_gain": 0.1,
   "write_mp3": false,
   "ffmpeg_bin": "/usr/bin/ffmpeg"
 }
@@ -40,6 +47,13 @@ class SiteConfigTests(unittest.TestCase):
             self.assertEqual(config.detection_threshold, 0.5)
             self.assertEqual(config.subset_limit, 10)
             self.assertEqual(config.name_contains, ["20260518"])
+            self.assertTrue(config.noise_reduction_enabled)
+            self.assertEqual(config.noise_reduction_n_fft, 2048)
+            self.assertEqual(config.noise_reduction_hop, 256)
+            self.assertEqual(config.noise_reduction_percentile, 15.0)
+            self.assertEqual(config.noise_reduction_margin_db, 5.0)
+            self.assertEqual(config.noise_reduction_softness_db, 2.5)
+            self.assertEqual(config.noise_reduction_floor_gain, 0.1)
             self.assertFalse(config.write_mp3)
             self.assertEqual(config.ffmpeg_bin, "/usr/bin/ffmpeg")
 

@@ -159,7 +159,7 @@ def extract_bat_activity(
         return None
 
     band_analysis = estimate_band_envelope_db(
-        spectrum_db=spectrogram_analysis.spectrum_db,
+        spectrum_db=spectrogram_analysis.excess_db,
         frequencies_hz=spectrogram_analysis.frequencies_hz,
         selected_bout=selected_bout,
         max_freq_hz=max_freq_hz,

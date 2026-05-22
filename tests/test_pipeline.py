@@ -83,6 +83,48 @@ class NightPipelineTests(unittest.TestCase):
             mock_export_review.assert_not_called()
             self.assertTrue(result["dry_run"])
 
+    def test_run_night_pipeline_can_run_detection_on_noise_reduced_audio(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            recordings = root / "recordings"
+            enhanced = root / "enhanced"
+            detections = root / "detections"
+            recordings.mkdir()
+            source_audio = recordings / "20260518_220000T.WAV"
+            source_audio.write_bytes(b"wav")
+
+            config = SiteConfig(
+                recording_input_dir=str(recordings),
+                detection_output_dir=str(detections),
+                noise_reduction_enabled=True,
+                noise_reduction_output_dir=str(enhanced),
+                night_token="20260518",
+                night_start_hour=18,
+                night_end_hour=12,
+            )
+
+            def fake_reduce_noise_for_files(audio_paths, input_dir, output_dir, config):
+                written_paths = []
+                for audio_path in audio_paths:
+                    output_path = output_dir / audio_path.relative_to(input_dir)
+                    output_path.parent.mkdir(parents=True, exist_ok=True)
+                    output_path.write_bytes(audio_path.read_bytes())
+                    written_paths.append(output_path)
+                return written_paths
+
+            with (
+                patch("batpipe.pipeline.reduce_noise_for_files", side_effect=fake_reduce_noise_for_files) as mock_reduce_noise,
+                patch("batpipe.pipeline.run_detection_plan") as mock_run_detection,
+            ):
+                result = run_night_pipeline(config, skip_summary=True, skip_review=True)
+
+            mock_reduce_noise.assert_called_once()
+            mock_run_detection.assert_called_once()
+            detection_plan = mock_run_detection.call_args.args[0]
+            self.assertEqual(Path(detection_plan.input_dir), enhanced.resolve())
+            self.assertEqual(result["detection_input_dir"], str(enhanced.resolve()))
+            self.assertEqual(result["review_audio_dir"], str(recordings.resolve()))
+
     def test_run_night_pipeline_reports_unwritable_detection_output_dir(self) -> None:
         with TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

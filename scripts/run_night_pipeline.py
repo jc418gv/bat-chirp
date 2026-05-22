@@ -33,6 +33,16 @@ def _print_progress(event: str, payload: dict[str, object]) -> None:
             flush=True,
         )
         return
+    if event == "noise_reduction_started":
+        print(
+            f"Noise-floor reduction: preparing {payload.get('selected_audio_files', 0)} file(s)...",
+            file=sys.stderr,
+            flush=True,
+        )
+        return
+    if event == "noise_reduction_completed":
+        print("Noise-floor reduction complete.", file=sys.stderr, flush=True)
+        return
     if event == "summary_started":
         print("Summarizing detections...", file=sys.stderr, flush=True)
         return

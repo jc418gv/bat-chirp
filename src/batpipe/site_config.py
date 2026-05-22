@@ -22,6 +22,14 @@ class SiteConfig:
     subset_limit: int | None = None
     name_contains: list[str] = field(default_factory=list)
     extra_args: list[str] = field(default_factory=list)
+    noise_reduction_enabled: bool = False
+    noise_reduction_output_dir: str | None = None
+    noise_reduction_n_fft: int = 1024
+    noise_reduction_hop: int = 128
+    noise_reduction_percentile: float = 20.0
+    noise_reduction_margin_db: float = 6.0
+    noise_reduction_softness_db: float = 3.0
+    noise_reduction_floor_gain: float = 0.05
     clip_start_s: float | None = None
     clip_duration_s: float | None = None
     padding_before_s: float = 5.0
@@ -62,6 +70,7 @@ def load_site_config(path: Path) -> SiteConfig:
     work_root_dir = _resolve_config_path_value(path, payload.get("work_root_dir"))
     explicit_night_runs_dir = _resolve_config_path_value(path, payload.get("night_runs_dir"))
     detection_output_dir = _resolve_config_path_value(path, payload.get("detection_output_dir"))
+    noise_reduction_output_dir = _resolve_config_path_value(path, payload.get("noise_reduction_output_dir"))
     summary_output_dir = _resolve_config_path_value(path, payload.get("summary_output_dir"))
     review_output_value = payload.get("review_output_dir", payload.get("validation_output_dir"))
     review_output_dir = _resolve_config_path_value(path, review_output_value)
@@ -82,6 +91,14 @@ def load_site_config(path: Path) -> SiteConfig:
         subset_limit=(int(payload["subset_limit"]) if payload.get("subset_limit") is not None else None),
         name_contains=[str(item) for item in payload.get("name_contains", [])],
         extra_args=[str(item) for item in payload.get("extra_args", [])],
+        noise_reduction_enabled=bool(payload.get("noise_reduction_enabled", False)),
+        noise_reduction_output_dir=noise_reduction_output_dir,
+        noise_reduction_n_fft=int(payload.get("noise_reduction_n_fft", 1024)),
+        noise_reduction_hop=int(payload.get("noise_reduction_hop", 128)),
+        noise_reduction_percentile=float(payload.get("noise_reduction_percentile", 20.0)),
+        noise_reduction_margin_db=float(payload.get("noise_reduction_margin_db", 6.0)),
+        noise_reduction_softness_db=float(payload.get("noise_reduction_softness_db", 3.0)),
+        noise_reduction_floor_gain=float(payload.get("noise_reduction_floor_gain", 0.05)),
         clip_start_s=(float(payload["clip_start_s"]) if payload.get("clip_start_s") is not None else None),
         clip_duration_s=(float(payload["clip_duration_s"]) if payload.get("clip_duration_s") is not None else None),
         padding_before_s=float(payload.get("padding_before_s", 5.0)),

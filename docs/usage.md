@@ -55,6 +55,24 @@ To reuse existing BatDetect2 JSON files and only regenerate summaries plus revie
 PYTHONPATH=src python scripts/run_night_pipeline.py --config config/site.local.json --skip-detection
 ```
 
+## Noise-Floor Reduction Before Detection
+
+On noisy nights you can ask the pipeline to create spectral-gated copies of the selected WAV files and run BatDetect2 on those copies:
+
+```json
+{
+	"noise_reduction_enabled": true,
+	"noise_reduction_n_fft": 1024,
+	"noise_reduction_hop": 128,
+	"noise_reduction_percentile": 20.0,
+	"noise_reduction_margin_db": 6.0,
+	"noise_reduction_softness_db": 3.0,
+	"noise_reduction_floor_gain": 0.05
+}
+```
+
+This is intended as a detector-input experiment, not high-fidelity restoration. The enhanced files keep the original filenames in a separate directory, so BatDetect2 JSON files still match the original recordings by basename. Review exports continue to cut clips from the original WAVs.
+
 The same shell wrapper accepts any extra `run_night_pipeline.py` flags, for example:
 
 ```bash

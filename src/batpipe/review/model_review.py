@@ -40,6 +40,7 @@ class SpectrogramConfig:
     nperseg: int = 2048
     noverlap_ratio: float = 0.75
     band_margin_hz: float = 5000.0
+    noise_floor_percentile: float = 20.0
     envelope_percentile: float = 85.0
     gaussian_sigma: float = 1.0
 

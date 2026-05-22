@@ -24,9 +24,25 @@ from batpipe.review import (
     render_review_spectrogram,
 )
 from batpipe.review.annotation_builders import build_detection_gap_annotations
+from batpipe.review.band_analysis import compute_per_frequency_excess_db
 
 
 class ReviewAcousticTests(unittest.TestCase):
+    def test_compute_per_frequency_excess_uses_bin_specific_low_percentile_floor(self) -> None:
+        spectrum_db = np.array(
+            [
+                [-50.0, -49.0, -48.0, -10.0],
+                [-25.0, -24.0, -23.0, -5.0],
+            ],
+            dtype=np.float32,
+        )
+
+        noise_floor_db, excess_db = compute_per_frequency_excess_db(spectrum_db, percentile=0.0)
+
+        np.testing.assert_allclose(noise_floor_db, [-50.0, -25.0])
+        np.testing.assert_allclose(excess_db[:, 0], [0.0, 0.0])
+        np.testing.assert_allclose(excess_db[:, -1], [40.0, 20.0])
+
     def test_format_sample_time_token_uses_recording_local_clock(self) -> None:
         sample_token = format_sample_time_token(Path("20260518_020000T.WAV"), 20.9737)
 

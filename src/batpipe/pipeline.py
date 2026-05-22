@@ -5,7 +5,14 @@ from dataclasses import asdict
 from pathlib import Path
 
 from batpipe.aggregate import summarize_detection_directory
-from batpipe.detect import build_detection_plan, command_as_shell_string, run_detection_plan, write_detection_plan
+from batpipe.detect import (
+    build_detection_plan,
+    command_as_shell_string,
+    discover_audio_files_for_night,
+    run_detection_plan,
+    write_detection_plan,
+)
+from batpipe.noise_floor import NoiseReductionConfig, reduce_noise_for_files
 from batpipe.review import export_review_batch
 from batpipe.review_site import build_review_site
 from batpipe.site_config import SiteConfig, resolve_site_path
@@ -39,6 +46,23 @@ def _stringify_path_mapping(values: dict[str, object]) -> dict[str, object]:
     }
 
 
+def _default_noise_reduction_output_dir(config: SiteConfig, detection_output_dir: Path) -> Path:
+    if config.noise_reduction_output_dir:
+        return resolve_site_path(config.noise_reduction_output_dir) or (detection_output_dir.parent / "noise-reduced")
+    return detection_output_dir.parent / "noise-reduced"
+
+
+def _build_noise_reduction_config(config: SiteConfig) -> NoiseReductionConfig:
+    return NoiseReductionConfig(
+        n_fft=config.noise_reduction_n_fft,
+        hop=config.noise_reduction_hop,
+        noise_floor_percentile=config.noise_reduction_percentile,
+        margin_db=config.noise_reduction_margin_db,
+        softness_db=config.noise_reduction_softness_db,
+        floor_gain=config.noise_reduction_floor_gain,
+    )
+
+
 def run_night_pipeline(
     config: SiteConfig,
     *,
@@ -57,8 +81,47 @@ def run_night_pipeline(
 
     _ensure_input_directory(input_dir, "recording_input_dir")
     _ensure_output_directory(detection_output_dir, "detection_output_dir")
+
+    detection_input_dir = input_dir
+    noise_reduction_output_dir: Path | None = None
+    if config.noise_reduction_enabled:
+        noise_reduction_output_dir = _default_noise_reduction_output_dir(config, detection_output_dir)
+        _ensure_output_directory(noise_reduction_output_dir, "noise_reduction_output_dir")
+        if not skip_detection and not dry_run:
+            selected_audio_files = discover_audio_files_for_night(
+                input_dir,
+                config.name_contains,
+                night_token=config.night_token,
+                night_start_hour=config.night_start_hour,
+                night_end_hour=config.night_end_hour,
+            )
+            selected_audio_files = selected_audio_files[: config.subset_limit] if config.subset_limit else selected_audio_files
+            if progress_callback is not None:
+                progress_callback(
+                    "noise_reduction_started",
+                    {
+                        "selected_audio_files": len(selected_audio_files),
+                        "noise_reduction_output_dir": str(noise_reduction_output_dir),
+                    },
+                )
+            reduce_noise_for_files(
+                selected_audio_files,
+                input_dir=input_dir,
+                output_dir=noise_reduction_output_dir,
+                config=_build_noise_reduction_config(config),
+            )
+            if progress_callback is not None:
+                progress_callback(
+                    "noise_reduction_completed",
+                    {
+                        "selected_audio_files": len(selected_audio_files),
+                        "noise_reduction_output_dir": str(noise_reduction_output_dir),
+                    },
+                )
+            detection_input_dir = noise_reduction_output_dir
+
     plan = build_detection_plan(
-        input_dir=input_dir,
+        input_dir=detection_input_dir,
         output_dir=detection_output_dir,
         batdetect2_bin=config.batdetect2_bin,
         model=config.model,
@@ -77,6 +140,9 @@ def run_night_pipeline(
         "config": asdict(config),
         "detection_manifest": str(manifest_path),
         "detection_command": command_as_shell_string(plan.batdetect2_command),
+        "detection_input_dir": str(detection_input_dir),
+        "review_audio_dir": str(input_dir),
+        "noise_reduction_output_dir": str(noise_reduction_output_dir) if noise_reduction_output_dir is not None else None,
         "selected_audio_files": plan.selected_file_count,
         "discovered_audio_files": plan.audio_file_count,
         "dry_run": dry_run,
