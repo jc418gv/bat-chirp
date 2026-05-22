@@ -197,18 +197,6 @@ def render_review_spectrogram(
         )
 
     axis.set_title(f"{title}", fontsize=11, pad=6)
-    axis.text(
-        0.995,
-        0.015,
-        "github.com/jc418gv/bat-chirp",
-        transform=axis.transAxes,
-        ha="right",
-        va="bottom",
-        fontsize=8,
-        color="#f5f5f5",
-        alpha=0.9,
-        bbox={"boxstyle": "round,pad=0.2", "facecolor": "#111111", "edgecolor": "none", "alpha": 0.65},
-    )
     axis.set_xlabel(xlabel)
     axis.set_ylabel("Frequency (kHz)")
     axis.set_ylim(0, max_freq_hz / 1000.0)
@@ -219,5 +207,17 @@ def render_review_spectrogram(
     axis_position = axis.get_position()
     range_position = range_axis.get_position()
     range_axis.set_position([axis_position.x0, range_position.y0, axis_position.width, range_position.height])
+    range_axis.text(
+        0.995,
+        -0.28,
+        "github.com/jc418gv/bat-chirp",
+        transform=range_axis.transAxes,
+        ha="right",
+        va="center",
+        fontsize=8,
+        color="#f5f5f5",
+        alpha=0.9,
+        bbox={"boxstyle": "round,pad=0.2", "facecolor": "#111111", "edgecolor": "none", "alpha": 0.65},
+    )
     figure.savefig(output_path, dpi=200)
     plt.close(figure)
