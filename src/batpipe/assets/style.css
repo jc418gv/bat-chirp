@@ -423,6 +423,28 @@ a:hover {
   overflow: auto;
 }
 
+.spectrogram-modal-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+.spectrogram-panel {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.spectrogram-panel-label {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #8eb08a;
+}
+
 .spectrogram-modal-image {
   display: block;
   width: 100%;
@@ -431,6 +453,12 @@ a:hover {
   object-fit: contain;
   background: #040704;
   border-radius: 12px;
+}
+
+@media (min-width: 1080px) {
+  .spectrogram-modal-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 720px) {

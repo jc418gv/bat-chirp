@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+import warnings
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 from scipy.io import wavfile
+from scipy.io.wavfile import WavFileWarning
 from scipy.signal import istft, stft
 
 EPS = 1e-20
+ProgressCallback = Callable[[str, dict[str, object]], None]
 
 
 @dataclass(slots=True)
@@ -15,10 +19,10 @@ class NoiseReductionConfig:
     mode: str = "spectral_subtract"
     n_fft: int = 1024
     hop: int = 128
-    noise_floor_percentile: float = 20.0
-    spectral_subtract_oversubtract: float = 2.5
-    spectral_subtract_floor_ratio: float = 0.01
-    spectral_subtract_smoothing_bins: int = 7
+    noise_floor_percentile: float = 30.0
+    spectral_subtract_oversubtract: float = 4.0
+    spectral_subtract_floor_ratio: float = 0.002
+    spectral_subtract_smoothing_bins: int = 9
     margin_db: float = 6.0
     softness_db: float = 3.0
     floor_gain: float = 0.05
@@ -139,7 +143,9 @@ def _apply_spectral_subtraction(spectrum: np.ndarray, config: NoiseReductionConf
 
 
 def reduce_noise_floor_wav(source_path: Path, output_path: Path, config: NoiseReductionConfig | None = None) -> Path:
-    sample_rate_hz, audio = wavfile.read(source_path)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", WavFileWarning)
+        sample_rate_hz, audio = wavfile.read(source_path)
     float_audio, original_dtype = _as_float_audio(np.asarray(audio))
     enhanced = reduce_noise_floor(float_audio, sample_rate_hz, config=config)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -152,13 +158,36 @@ def reduce_noise_for_files(
     input_dir: Path,
     output_dir: Path,
     config: NoiseReductionConfig | None = None,
+    progress_callback: ProgressCallback | None = None,
 ) -> list[Path]:
     written_paths: list[Path] = []
-    for audio_path in audio_paths:
+    total = len(audio_paths)
+    for index, audio_path in enumerate(audio_paths, start=1):
         try:
             relative_path = audio_path.relative_to(input_dir)
         except ValueError:
             relative_path = Path(audio_path.name)
         output_path = output_dir / relative_path
-        written_paths.append(reduce_noise_floor_wav(audio_path, output_path, config=config))
+        if progress_callback is not None:
+            progress_callback(
+                "noise_reduction_item_started",
+                {
+                    "index": index,
+                    "total": total,
+                    "audio_file": str(audio_path),
+                    "output_file": str(output_path),
+                },
+            )
+        written_path = reduce_noise_floor_wav(audio_path, output_path, config=config)
+        written_paths.append(written_path)
+        if progress_callback is not None:
+            progress_callback(
+                "noise_reduction_item_completed",
+                {
+                    "index": index,
+                    "total": total,
+                    "audio_file": str(audio_path),
+                    "output_file": str(written_path),
+                },
+            )
     return written_paths

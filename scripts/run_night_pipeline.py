@@ -14,6 +14,9 @@ from batpipe.pipeline import run_night_pipeline
 from batpipe.site_config import load_site_config
 
 
+_PROGRESS_STATE: dict[str, dict[str, object]] = {}
+
+
 def build_parser() -> ArgumentParser:
     parser = ArgumentParser(description="Run the full overnight pipeline from raw WAVs through detection, summary, and review export.")
     parser.add_argument("--config", required=True, help="Path to the site JSON configuration file.")
@@ -26,22 +29,45 @@ def build_parser() -> ArgumentParser:
 
 
 def _print_progress(event: str, payload: dict[str, object]) -> None:
+    if event == "noise_reduction_started":
+        total = int(payload.get("selected_audio_files", 0) or 0)
+        _PROGRESS_STATE["noise_reduction"] = {"total": total, "last_index": 0}
+        print(
+            f"Noise-floor reduction: [0/{total}] preparing file(s)...",
+            file=sys.stderr,
+            flush=True,
+        )
+        return
+    if event == "noise_reduction_item_completed":
+        total = int(payload.get("total", 0) or 0)
+        index = int(payload.get("index", 0) or 0)
+        audio_file = Path(str(payload.get("audio_file", ""))).name
+        _PROGRESS_STATE["noise_reduction"] = {"total": total, "last_index": index}
+        print(
+            f"\rNoise-floor reduction: [{index}/{total}] {audio_file}",
+            file=sys.stderr,
+            end="",
+            flush=True,
+        )
+        return
     if event == "detection_started":
+        if "noise_reduction" in _PROGRESS_STATE:
+            print(file=sys.stderr, flush=True)
+            _PROGRESS_STATE.pop("noise_reduction", None)
         print(
             f"Running BatDetect2 inference on {payload.get('selected_audio_files', 0)} file(s)...",
             file=sys.stderr,
             flush=True,
         )
         return
-    if event == "noise_reduction_started":
+    if event == "noise_reduction_completed":
+        state = _PROGRESS_STATE.pop("noise_reduction", {})
+        total = int(payload.get("selected_audio_files", state.get("total", 0)) or 0)
         print(
-            f"Noise-floor reduction: preparing {payload.get('selected_audio_files', 0)} file(s)...",
+            f"\rNoise-floor reduction: [{total}/{total}] complete.{' ' * 24}",
             file=sys.stderr,
             flush=True,
         )
-        return
-    if event == "noise_reduction_completed":
-        print("Noise-floor reduction complete.", file=sys.stderr, flush=True)
         return
     if event == "summary_started":
         print("Summarizing detections...", file=sys.stderr, flush=True)
@@ -50,20 +76,33 @@ def _print_progress(event: str, payload: dict[str, object]) -> None:
         print("Review export: preparing matched files...", file=sys.stderr, flush=True)
         return
     if event == "batch_started":
+        total = int(payload.get("matched_job_count", 0) or 0)
+        _PROGRESS_STATE["review_export"] = {"total": total, "last_index": 0}
         print(
             f"Review export: {payload.get('matched_job_count', 0)} clip(s) matched, "
-            f"{payload.get('missing_json_count', 0)} missing JSON. Analyzing",
+            f"{payload.get('missing_json_count', 0)} missing JSON.",
+            file=sys.stderr,
+            flush=True,
+        )
+        return
+    if event in {"item_completed", "item_failed"}:
+        total = int(payload.get("total", _PROGRESS_STATE.get("review_export", {}).get("total", 0)) or 0)
+        index = int(payload.get("index", 0) or 0)
+        audio_file = Path(str(payload.get("audio_file", ""))).name
+        outcome = "failed" if event == "item_failed" else "done"
+        _PROGRESS_STATE["review_export"] = {"total": total, "last_index": index}
+        print(
+            f"\rReview export: [{index}/{total}] {audio_file} ({outcome})",
             file=sys.stderr,
             end="",
             flush=True,
         )
         return
-    if event in {"item_completed", "item_failed"}:
-        print(".", file=sys.stderr, end="", flush=True)
-        return
     if event == "batch_completed":
+        state = _PROGRESS_STATE.pop("review_export", {})
+        total = int(state.get("total", 0) or 0)
         print(
-            f" done ({payload.get('exported_count', 0)} exported, {payload.get('failed_count', 0)} failed).",
+            f"\rReview export: [{total}/{total}] complete ({payload.get('exported_count', 0)} exported, {payload.get('failed_count', 0)} failed).{' ' * 20}",
             file=sys.stderr,
             flush=True,
         )

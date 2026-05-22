@@ -37,8 +37,8 @@ def _render_audio_panel(*, clip_mp3_href: str, clip_wav_href: str, audible_mp3_h
 
 def _render_card_actions(
     *,
-  spectrogram_href: str,
-  noise_reduced_spectrogram_href: str,
+    spectrogram_href: str,
+    noise_reduced_spectrogram_href: str,
     time_label: str,
     audio_name: str,
     audible_mp3_href: str,
@@ -47,16 +47,39 @@ def _render_card_actions(
     clip_wav_href: str,
     report_href: str,
 ) -> str:
-  noise_reduced_button = ""
-  if noise_reduced_spectrogram_href:
-    noise_reduced_button = (
-      f'<button class="pill pill-button" type="button" '
-      f'data-spectrogram-modal-trigger data-spectrogram-src="{escape(noise_reduced_spectrogram_href)}" '
-      f'data-spectrogram-alt="Noise-reduced spectrogram {escape(time_label)}" '
-      f'data-spectrogram-title="{escape(audio_name)} · noise reduced">noise reduced</button>'
+    compare_button = ""
+    noise_reduced_button = ""
+    if noise_reduced_spectrogram_href:
+        compare_button = (
+            f'<button class="pill primary pill-button" type="button" '
+            f'data-spectrogram-modal-trigger data-spectrogram-src="{escape(spectrogram_href)}" '
+            f'data-spectrogram-alt="Original spectrogram {escape(time_label)}" '
+            f'data-spectrogram-title="{escape(audio_name)} · compare" '
+            f'data-spectrogram-primary-label="original" '
+            f'data-spectrogram-compare-src="{escape(noise_reduced_spectrogram_href)}" '
+            f'data-spectrogram-compare-alt="Noise-reduced spectrogram {escape(time_label)}" '
+            f'data-spectrogram-compare-label="noise reduced">compare spectrograms</button>'
+        )
+        noise_reduced_button = (
+            f'<button class="pill pill-button" type="button" '
+            f'data-spectrogram-modal-trigger data-spectrogram-src="{escape(noise_reduced_spectrogram_href)}" '
+            f'data-spectrogram-alt="Noise-reduced spectrogram {escape(time_label)}" '
+            f'data-spectrogram-title="{escape(audio_name)} · noise reduced" '
+            f'data-spectrogram-primary-label="noise reduced" '
+            f'data-spectrogram-compare-src="{escape(spectrogram_href)}" '
+            f'data-spectrogram-compare-alt="Original spectrogram {escape(time_label)}" '
+            f'data-spectrogram-compare-label="original">noise reduced only</button>'
+        )
+    original_button = (
+        f'<button class="pill pill-button" type="button" '
+        f'data-spectrogram-modal-trigger data-spectrogram-src="{escape(spectrogram_href)}" '
+        f'data-spectrogram-alt="Original spectrogram {escape(time_label)}" '
+        f'data-spectrogram-title="{escape(audio_name)} · original" '
+        f'data-spectrogram-primary-label="original">original only</button>'
     )
     return f"""<div class="links">
-    <button class="pill primary pill-button" type="button" data-spectrogram-modal-trigger data-spectrogram-src="{escape(spectrogram_href)}" data-spectrogram-alt="Original spectrogram {escape(time_label)}" data-spectrogram-title="{escape(audio_name)} · original">original spectrogram</button>
+    {compare_button}
+    {original_button}
     {noise_reduced_button}
       <a class="pill" href="{escape(audible_mp3_href)}" target="_blank" rel="noreferrer">x8 mp3</a>
       <a class="pill" href="{escape(audible_wav_href)}" target="_blank" rel="noreferrer">x8 wav</a>
@@ -108,9 +131,9 @@ def render_cards_html(entries: list[dict[str, object]], summary_dir: Path) -> st
         )
         cards.append(
             f"""<article class="card">
-  <button class="image-link" type="button" data-spectrogram-modal-trigger data-spectrogram-src="{escape(spectrogram_href)}" data-spectrogram-alt="Original spectrogram {escape(time_label)}" data-spectrogram-title="{escape(audio_name)} · original">
+  <button class="image-link" type="button" data-spectrogram-modal-trigger data-spectrogram-src="{escape(spectrogram_href)}" data-spectrogram-alt="Original spectrogram {escape(time_label)}" data-spectrogram-title="{escape(audio_name)} · {'compare' if noise_reduced_spectrogram_href else 'original'}" data-spectrogram-primary-label="original"{' data-spectrogram-compare-src="' + escape(noise_reduced_spectrogram_href) + '" data-spectrogram-compare-alt="Noise-reduced spectrogram ' + escape(time_label) + '" data-spectrogram-compare-label="noise reduced"' if noise_reduced_spectrogram_href else ''}>
     <img class="spectrogram" src="{escape(spectrogram_href)}" alt="Original spectrogram {escape(time_label)}" loading="lazy">
-    <span class="image-link-label">Expand original spectrogram</span>
+    <span class="image-link-label">{'Compare spectrograms' if noise_reduced_spectrogram_href else 'Expand original spectrogram'}</span>
   </button>
   <div class="card-body">
     <p class="card-time">{escape(time_label)}<span class="card-rank">rank {escape(str(entry['rank']))}</span></p>
@@ -134,11 +157,19 @@ def _render_modal_shell() -> str:
       </div>
       <div class="spectrogram-modal-actions">
         <a class="pill" data-spectrogram-modal-open href="#" target="_blank" rel="noreferrer">open full image</a>
+        <a class="pill" data-spectrogram-modal-open-compare href="#" target="_blank" rel="noreferrer" hidden>open compare image</a>
         <button class="pill pill-button" type="button" data-spectrogram-modal-close>close</button>
       </div>
     </div>
-    <div class="spectrogram-modal-frame">
-      <img class="spectrogram-modal-image" data-spectrogram-modal-image src="" alt="">
+    <div class="spectrogram-modal-frame spectrogram-modal-grid" data-spectrogram-modal-grid>
+      <figure class="spectrogram-panel">
+        <figcaption class="spectrogram-panel-label" data-spectrogram-modal-primary-label>original</figcaption>
+        <img class="spectrogram-modal-image" data-spectrogram-modal-image src="" alt="">
+      </figure>
+      <figure class="spectrogram-panel" data-spectrogram-modal-compare-panel hidden>
+        <figcaption class="spectrogram-panel-label" data-spectrogram-modal-compare-label>noise reduced</figcaption>
+        <img class="spectrogram-modal-image" data-spectrogram-modal-compare-image src="" alt="">
+      </figure>
     </div>
   </div>
 </dialog>"""
@@ -153,15 +184,24 @@ def _render_modal_script() -> str:
   }
 
   const modalImage = modal.querySelector('[data-spectrogram-modal-image]');
+  const modalCompareImage = modal.querySelector('[data-spectrogram-modal-compare-image]');
+  const modalPrimaryLabel = modal.querySelector('[data-spectrogram-modal-primary-label]');
+  const modalCompareLabel = modal.querySelector('[data-spectrogram-modal-compare-label]');
+  const modalComparePanel = modal.querySelector('[data-spectrogram-modal-compare-panel]');
   const modalTitle = modal.querySelector('[data-spectrogram-modal-title]');
   const modalOpenLink = modal.querySelector('[data-spectrogram-modal-open]');
+  const modalOpenCompareLink = modal.querySelector('[data-spectrogram-modal-open-compare]');
   const closeButton = modal.querySelector('[data-spectrogram-modal-close]');
   const triggers = document.querySelectorAll('[data-spectrogram-modal-trigger]');
 
   const openModal = (trigger) => {
     const src = trigger.getAttribute('data-spectrogram-src');
+    const compareSrc = trigger.getAttribute('data-spectrogram-compare-src');
     const alt = trigger.getAttribute('data-spectrogram-alt') || 'Spectrogram preview';
+    const compareAlt = trigger.getAttribute('data-spectrogram-compare-alt') || 'Comparison spectrogram preview';
     const title = trigger.getAttribute('data-spectrogram-title') || 'Spectrogram preview';
+    const primaryLabel = trigger.getAttribute('data-spectrogram-primary-label') || 'original';
+    const compareLabel = trigger.getAttribute('data-spectrogram-compare-label') || 'noise reduced';
     if (!src || !modalImage || !modalTitle || !modalOpenLink) {
       window.open(src, '_blank', 'noopener');
       return;
@@ -169,8 +209,26 @@ def _render_modal_script() -> str:
 
     modalImage.src = src;
     modalImage.alt = alt;
+    if (modalPrimaryLabel) {
+      modalPrimaryLabel.textContent = primaryLabel;
+    }
     modalTitle.textContent = title;
     modalOpenLink.href = src;
+
+    if (compareSrc && modalCompareImage && modalComparePanel && modalCompareLabel && modalOpenCompareLink) {
+      modalCompareImage.src = compareSrc;
+      modalCompareImage.alt = compareAlt;
+      modalCompareLabel.textContent = compareLabel;
+      modalComparePanel.hidden = false;
+      modalOpenCompareLink.hidden = false;
+      modalOpenCompareLink.href = compareSrc;
+    } else if (modalCompareImage && modalComparePanel && modalOpenCompareLink) {
+      modalCompareImage.src = '';
+      modalCompareImage.alt = '';
+      modalComparePanel.hidden = true;
+      modalOpenCompareLink.hidden = true;
+      modalOpenCompareLink.href = '#';
+    }
 
     if (typeof modal.showModal === 'function') {
       modal.showModal();

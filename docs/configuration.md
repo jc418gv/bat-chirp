@@ -62,9 +62,9 @@ In most cases, that is enough.
 - `noise_reduction_n_fft`, `noise_reduction_hop`
   STFT size and hop used for noise reduction. For ultrasonic AudioMoth files, start with `1024/128` or `2048/256`.
 - `noise_reduction_percentile`
-  Per-frequency noise floor percentile. Lower values are more conservative; `20.0` is the default starting point.
+  Per-frequency noise floor percentile. Higher values make the subtraction more aggressive. `30.0` is now the default starting point because the earlier `20.0` setting was too weak on real overnight clips.
 - `noise_reduction_spectral_subtract_oversubtract`, `noise_reduction_spectral_subtract_floor_ratio`, `noise_reduction_spectral_subtract_smoothing_bins`
-  Spectral subtraction controls. Higher oversubtraction removes more stationary floor, floor ratio prevents hard nulling, and smoothing bins stabilize the estimated floor across adjacent frequencies.
+  Spectral subtraction controls. Higher oversubtraction removes more stationary floor, lower floor ratio pushes the floor down further without hard-zeroing, and smoothing bins stabilize the estimated floor across adjacent frequencies. The current defaults are `4.0`, `0.002`, and `9` after benchmarking against real review clips where the earlier defaults produced almost no visible change.
 - `noise_reduction_margin_db`, `noise_reduction_softness_db`, `noise_reduction_floor_gain`
   Soft spectral gate controls used only when `noise_reduction_mode` is `soft_gate`.
 - `clip_start_s`

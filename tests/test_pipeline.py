@@ -103,13 +103,23 @@ class NightPipelineTests(unittest.TestCase):
                 night_end_hour=12,
             )
 
-            def fake_reduce_noise_for_files(audio_paths, input_dir, output_dir, config):
+            def fake_reduce_noise_for_files(audio_paths, input_dir, output_dir, config, progress_callback=None):
                 written_paths = []
                 for audio_path in audio_paths:
                     output_path = output_dir / audio_path.relative_to(input_dir)
                     output_path.parent.mkdir(parents=True, exist_ok=True)
                     output_path.write_bytes(audio_path.read_bytes())
                     written_paths.append(output_path)
+                    if progress_callback is not None:
+                        progress_callback(
+                            "noise_reduction_item_completed",
+                            {
+                                "index": len(written_paths),
+                                "total": len(audio_paths),
+                                "audio_file": str(audio_path),
+                                "output_file": str(output_path),
+                            },
+                        )
                 return written_paths
 
             with (
@@ -149,13 +159,23 @@ class NightPipelineTests(unittest.TestCase):
                 night_end_hour=12,
             )
 
-            def fake_reduce_noise_for_files(audio_paths, input_dir, output_dir, config):
+            def fake_reduce_noise_for_files(audio_paths, input_dir, output_dir, config, progress_callback=None):
                 written_paths = []
                 for audio_path in audio_paths:
                     output_path = output_dir / audio_path.relative_to(input_dir)
                     output_path.parent.mkdir(parents=True, exist_ok=True)
                     output_path.write_bytes(audio_path.read_bytes())
                     written_paths.append(output_path)
+                    if progress_callback is not None:
+                        progress_callback(
+                            "noise_reduction_item_completed",
+                            {
+                                "index": len(written_paths),
+                                "total": len(audio_paths),
+                                "audio_file": str(audio_path),
+                                "output_file": str(output_path),
+                            },
+                        )
                 return written_paths
 
             with (

@@ -113,6 +113,7 @@ def run_night_pipeline(
                 input_dir=input_dir,
                 output_dir=noise_reduction_output_dir,
                 config=_build_noise_reduction_config(config),
+                progress_callback=progress_callback,
             )
             if progress_callback is not None:
                 progress_callback(
