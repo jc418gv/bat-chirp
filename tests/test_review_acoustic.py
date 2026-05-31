@@ -23,11 +23,17 @@ from batpipe.review import (
     group_detection_bouts,
     render_review_spectrogram,
 )
+from batpipe.review.audio import _normalize_mp3_sample_rate_hz
 from batpipe.review.annotation_builders import build_detection_gap_annotations
 from batpipe.review.band_analysis import compute_per_frequency_excess_db
 
 
 class ReviewAcousticTests(unittest.TestCase):
+    def test_normalize_mp3_sample_rate_snaps_to_supported_rate(self) -> None:
+        self.assertEqual(_normalize_mp3_sample_rate_hz(31_250), 32_000)
+        self.assertEqual(_normalize_mp3_sample_rate_hz(48_000), 48_000)
+        self.assertEqual(_normalize_mp3_sample_rate_hz(49_000), 48_000)
+
     def test_compute_per_frequency_excess_uses_bin_specific_low_percentile_floor(self) -> None:
         spectrum_db = np.array(
             [

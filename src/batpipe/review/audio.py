@@ -47,7 +47,7 @@ def encode_wav_as_mp3(
         str(wav_path),
     ]
     if sample_rate_hz is not None:
-        command.extend(["-ar", str(sample_rate_hz)])
+        command.extend(["-ar", str(_normalize_mp3_sample_rate_hz(sample_rate_hz))])
     command.extend([
         "-codec:a",
         "libmp3lame",
@@ -57,6 +57,16 @@ def encode_wav_as_mp3(
     ])
     subprocess.run(command, check=True)
     return mp3_path
+
+
+def _normalize_mp3_sample_rate_hz(sample_rate_hz: int) -> int:
+    supported_sample_rates_hz = [8_000, 11_025, 12_000, 16_000, 22_050, 24_000, 32_000, 44_100, 48_000]
+    if sample_rate_hz <= supported_sample_rates_hz[0]:
+        return supported_sample_rates_hz[0]
+    return min(
+        supported_sample_rates_hz,
+        key=lambda candidate: (abs(candidate - sample_rate_hz), candidate < sample_rate_hz),
+    )
 
 
 def export_review_clip(
